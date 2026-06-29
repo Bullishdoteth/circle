@@ -14,6 +14,49 @@ export const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Circle | Community Finance, Simplified",
   description: "A modern platform for communities to collect contributions, manage shared funds, and automate payouts with complete transparency.",
+
+  openGraph: {
+      title: "Circle | Community Finance, Simplified",
+      description:
+        "Circle helps communities collect contributions, manage shared funds, automate payment reconciliation, and distribute payouts—all from one transparent platform.",
+
+      url: "https:/getcircle.vercel.app",
+      siteName: "Circle",
+
+      images: [
+        {
+          url: "/opengraph.png",
+          width: 1200,
+          height: 630,
+          alt: "Circle — Community Finance, Simplified",
+        },
+      ],
+
+      locale: "en_US",
+      type: "website",
+    },
+
+    twitter: {
+      card: "summary_large_image",
+      title: "Circle | Community Finance, Simplified",
+      description:
+        "Circle helps communities collect contributions, manage shared funds, automate payment reconciliation, and distribute payouts—all from one transparent platform.",
+
+      images: ["/opengraph.png"],
+    },
+
+    icons: {
+      icon: "/favicon.ico",
+      shortcut: "/favicon.ico",
+      apple: "/apple-touch-icon.png",
+    },
+
+    robots: {
+      index: true,
+      follow: true,
+    },
+
+    category: "Business",
 };
 
 export default function RootLayout({
