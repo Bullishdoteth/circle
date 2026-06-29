@@ -1,4 +1,5 @@
 import Header from "@/components/shared/header";
+import Footer from "@/components/shared/footer";
 import Hero from "@/components/shared/hero";
 import { Button } from "@/components/ui/button";
 
@@ -39,7 +40,8 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <Hero /> 
+      <Hero />
+      <Footer />
     </>
   )
 }
