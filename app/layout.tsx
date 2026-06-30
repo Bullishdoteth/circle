@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -75,7 +76,9 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <ClerkProvider>
+        <body className="min-h-full flex flex-col">{children}</body>
+      </ClerkProvider>
     </html>
   );
 }

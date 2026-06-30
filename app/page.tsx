@@ -3,11 +3,25 @@ import Footer from "@/components/shared/footer";
 import Hero from "@/components/shared/hero";
 import FAQs from "@/components/shared/faq";
 import { Button } from "@/components/ui/button";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 export default function Home() {
   return (
     <>
       <Header />
+      <header className="flex justify-end items-center p-4 gap-4 h-16">
+        <Show when="signed-out">
+          <SignInButton />
+          <SignUpButton>
+            <button className="bg-[#6c47ff] text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
+              Sign Up
+            </button>
+          </SignUpButton>
+        </Show>
+        <Show when="signed-in">
+          <UserButton />
+        </Show>
+      </header>
       <section className="px-6 py-20 sm:px-8 lg:px-10 lg:py-28">
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
           <h1 className="font-heading text-[2.75rem] font-normal leading-[1.05] tracking-[-0.04em] text-black sm:text-[3.5rem] lg:text-[4rem]">
