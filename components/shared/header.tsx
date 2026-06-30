@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
 
 const navItems = [
-    { label: 'Features', href: '/features' },
-    { label: 'Use Cases', href: '/use-cases' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Security', href: '/security' },
-    { label: 'About', href: '/about' },
+    { label: 'Features', href: '/#features' },
+    { label: 'How it works', href: '/#use-cases' },
+    { label: 'Pricing', href: '/#pricing' },
+    { label: 'Security', href: '/#security' },
+    { label: 'FAQs', href: '/#faq' },
 ]
 
 export default function Header() {
@@ -52,10 +52,10 @@ export default function Header() {
                 {/* Desktop CTAs */}
                 <div className="hidden items-center gap-5 md:flex">
                     <Link
-                        href="/signin"
+                        href="/join-circle"
                         className="text-sm font-medium text-neutral-600 transition-colors hover:text-black"
                     >
-                        Sign In
+                        Join a Circle
                     </Link>
 
                     <Button
@@ -63,7 +63,7 @@ export default function Header() {
                         className="h-11 rounded-full bg-[#4AA054] px-6 text-sm font-medium text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-[#408d49]"
                     >
                         <Link href="/create">
-                        Create Circle
+                        Create a Circle
                         </Link>
                     </Button>
                 </div>
@@ -101,11 +101,11 @@ export default function Header() {
                         ))}
                         <div className="border-t border-border my-4" />
                         <Link
-                        href="/signin"
+                        href="/join-circle"
                         className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-secondary hover:text-primary transition-colors"
                         onClick={() => setIsMenuOpen(false)}
                         >
-                        Sign In
+                        Join a Circle
                         </Link>
                         <Button
     asChild
