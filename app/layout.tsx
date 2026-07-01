@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
 import { Space_Grotesk, Inter } from "next/font/google";
-import "./globals.css";
+import "./globals.css"
 import { cn } from "@/lib/utils";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
@@ -77,7 +77,7 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <ClerkProvider>
-        <body className="min-h-full flex flex-col">{children}</body>
+          <body className="min-h-full flex flex-col">{children}</body>
       </ClerkProvider>
     </html>
   );
