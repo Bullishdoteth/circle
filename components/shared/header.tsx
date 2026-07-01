@@ -53,16 +53,16 @@ export default function Header() {
                 <div className="hidden items-center gap-5 md:flex">
                     <Link
                         href="/join-circle"
-                        className="text-sm font-medium text-neutral-600 transition-colors hover:text-black"
+                        className="cursor-pointer text-sm font-medium text-neutral-600 transition-colors hover:text-black"
                     >
                         Join a Circle
                     </Link>
 
                     <Button
                         asChild
-                        className="h-11 rounded-full bg-[#4AA054] px-6 text-sm font-medium text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-[#408d49]"
+                        className="cursor-pointer h-11 rounded-full bg-[#4AA054] px-6 text-sm font-medium text-white shadow-sm transition-all hover:scale-[1.02] hover:bg-[#408d49]"
                     >
-                        <Link href="/create">
+                        <Link href="/sign-up">
                         Create a Circle
                         </Link>
                     </Button>
@@ -102,16 +102,16 @@ export default function Header() {
                         <div className="border-t border-border my-4" />
                         <Link
                         href="/join-circle"
-                        className="block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-secondary hover:text-primary transition-colors"
+                        className="cursor-pointer block rounded-md px-3 py-2 text-base font-medium text-foreground hover:bg-secondary hover:text-primary transition-colors"
                         onClick={() => setIsMenuOpen(false)}
                         >
                         Join a Circle
                         </Link>
                         <Button
     asChild
-    className="mt-4 h-11 w-full rounded-full bg-[#4AA054]"
+    className="cursor-pointer mt-4 h-11 w-full rounded-full bg-[#4AA054]"
     >
-                        <Link href="/create" onClick={() => setIsMenuOpen(false)}>
+                        <Link href="/sign-up" onClick={() => setIsMenuOpen(false)}>
                             Create a Circle
                         </Link>
                         </Button>

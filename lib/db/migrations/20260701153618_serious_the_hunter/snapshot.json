@@ -1,19 +1,19 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8d20c43e-f4a9-400b-8a8b-7d30e9523af1",
+  "id": "b4d36898-eb8b-419e-b899-d63b22069d07",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
       "isRlsEnabled": false,
-      "name": "user",
+      "name": "users",
       "entityType": "tables",
       "schema": "public"
     },
     {
-      "type": "text",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -23,7 +23,7 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
     },
     {
       "type": "text",
@@ -33,10 +33,49 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "name",
+      "name": "clerk_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "first_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "users"
     },
     {
       "type": "text",
@@ -49,7 +88,20 @@
       "name": "email",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "image_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "users"
     },
     {
       "type": "text",
@@ -62,7 +114,20 @@
       "name": "address",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "phone_number",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "users"
     },
     {
       "type": "boolean",
@@ -72,49 +137,10 @@
       "default": "false",
       "generated": null,
       "identity": null,
-      "name": "email_verified",
+      "name": "onboarding_completed",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "image",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "user"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "phone",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "user"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'guest'",
-      "generated": null,
-      "identity": null,
-      "name": "role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "user"
+      "table": "users"
     },
     {
       "type": "boolean",
@@ -127,10 +153,10 @@
       "name": "is_active",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
     },
     {
-      "type": "timestamp",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -140,10 +166,10 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
     },
     {
-      "type": "timestamp",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -153,17 +179,39 @@
       "name": "updated_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "user"
+      "table": "users"
     },
     {
       "columns": [
         "id"
       ],
       "nameExplicit": false,
-      "name": "user_pkey",
+      "name": "users_pkey",
       "schema": "public",
-      "table": "user",
+      "table": "users",
       "entityType": "pks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "clerk_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "users_clerk_id_key",
+      "schema": "public",
+      "table": "users",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_name"
+      ],
+      "nullsNotDistinct": false,
+      "name": "users_user_name_key",
+      "schema": "public",
+      "table": "users",
+      "entityType": "uniques"
     },
     {
       "nameExplicit": false,
@@ -171,9 +219,9 @@
         "email"
       ],
       "nullsNotDistinct": false,
-      "name": "user_email_key",
+      "name": "users_email_key",
       "schema": "public",
-      "table": "user",
+      "table": "users",
       "entityType": "uniques"
     }
   ],
