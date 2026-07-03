@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from '@clerk/nextjs'
 import { Space_Grotesk, Inter } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 import { cn } from "@/lib/utils";
 
@@ -68,7 +69,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", "font-sans", inter.variable, spaceGrotesk.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        "font-sans",
+        inter.variable,
+        spaceGrotesk.variable
+      )}
     >
       <head>
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -76,9 +83,13 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <ClerkProvider>
-          <body className="min-h-full flex flex-col">{children}</body>
-      </ClerkProvider>
+
+      <body className="min-h-full flex flex-col">
+        <ClerkProvider>
+          {children}
+          <Toaster position="bottom-right" />
+        </ClerkProvider>
+      </body>
     </html>
   );
 }
