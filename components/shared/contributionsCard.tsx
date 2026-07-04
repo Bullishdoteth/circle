@@ -1,11 +1,12 @@
 import { TrendingUp } from 'lucide-react';
 
-    export function ContributionsCard() {
+    export function ContributionsCard({ activeCircle }: { activeCircle?: any }) {
+    const contrib = activeCircle ? `${activeCircle.currency === 'USD' ? '$' : '₦'}0` : '₦850,000';
     return (
         <div className="bg-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex-1">
             <p className="text-gray-600 text-xs md:text-sm mb-2">Contributions this month</p>
-            <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 text-balance">₦850,000</h3>
+            <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 text-balance">{contrib}</h3>
             <div className="flex items-center gap-1 text-green-600 text-xs md:text-sm font-medium">
             <TrendingUp size={16} />
             <span>+24% from last month</span>

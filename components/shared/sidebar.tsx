@@ -1,8 +1,11 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import { Home, Circle, Users, Gift, ArrowUpRight, Wallet, BarChart3, Settings, Menu, X } from 'lucide-react';
 import Link from 'next/link';
-import Image from "next/image"
+import Image from 'next/image';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
+import { getMyCirclesAction } from '@/lib/actions/circle';
 
 interface SidebarProps {
     isOpen?: boolean;
@@ -10,15 +13,105 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    const [userCircles, setUserCircles] = useState<any[]>([]);
+    const [selectedCircle, setSelectedCircle] = useState<any>(null);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    // Get active circle slug from URL or pathname
+    const activeCircleSlugFromUrl = searchParams?.get('circle') ?? null;
+    
+    // Check if pathname is like /circles/[slug]
+    const pathParts = pathname?.split('/') ?? [];
+    const isCircleDetailsPage = pathParts[1] === 'circles' && pathParts[2] && pathParts[2] !== 'members';
+    const activeCircleSlugFromPath = isCircleDetailsPage ? pathParts[2] : null;
+
+    const currentCircleSlug = activeCircleSlugFromUrl || activeCircleSlugFromPath;
+
+    useEffect(() => {
+        const fetchCircles = async () => {
+            const res = await getMyCirclesAction();
+            if (res.success && res.data) {
+                setUserCircles(res.data);
+                
+                if (currentCircleSlug) {
+                    const match = res.data.find(c => c.slug === currentCircleSlug);
+                    if (match) setSelectedCircle(match);
+                } else if (res.data.length > 0) {
+                    setSelectedCircle(res.data[0]);
+                    
+                    // Auto-append active circle to URL if on dashboard and no circle param
+                    if (pathname === '/dashboard') {
+                        router.replace(`/dashboard?circle=${res.data[0].slug}`);
+                    }
+                }
+            }
+        };
+        fetchCircles();
+    }, [currentCircleSlug, pathname]);
+
+    const handleSwitchCircle = (circle: any) => {
+        setSelectedCircle(circle);
+        setIsDropdownOpen(false);
+
+        const tab = searchParams?.get('tab');
+        const tabParam = tab ? `?tab=${tab}` : '';
+
+        if (pathname === '/dashboard') {
+            router.push(`/dashboard?circle=${circle.slug}`);
+        } else if (pathname.startsWith('/circles/')) {
+            router.push(`/circles/${circle.slug}${tabParam}`);
+        } else {
+            router.push(`/dashboard?circle=${circle.slug}`);
+        }
+    };
+
+    const activeCircleSlug = selectedCircle?.slug;
+
     const navItems = [
-        { icon: Home, label: 'Dashboard', href: '#' },
-        { icon: Circle, label: 'Circles', href: '#' },
-        { icon: Users, label: 'Members', href: '#' },
-        { icon: Gift, label: 'Contributions', href: '#' },
-        { icon: ArrowUpRight, label: 'Transactions', href: '#' },
-        { icon: Wallet, label: 'Payouts', href: '#' },
-        { icon: BarChart3, label: 'Reports', href: '#' },
-        { icon: Settings, label: 'Settings', href: '#' },
+        { 
+            icon: Home, 
+            label: 'Dashboard', 
+            href: activeCircleSlug ? `/dashboard?circle=${activeCircleSlug}` : '/dashboard' 
+        },
+        { 
+            icon: Circle, 
+            label: 'Circles', 
+            href: '/circles' 
+        },
+        { 
+            icon: Users, 
+            label: 'Members', 
+            href: activeCircleSlug ? `/circles/${activeCircleSlug}?tab=members` : '/circles' 
+        },
+        { 
+            icon: Gift, 
+            label: 'Contributions', 
+            href: '#' 
+        },
+        { 
+            icon: ArrowUpRight, 
+            label: 'Transactions', 
+            href: '#' 
+        },
+        { 
+            icon: Wallet, 
+            label: 'Payouts', 
+            href: '#' 
+        },
+        { 
+            icon: BarChart3, 
+            label: 'Reports', 
+            href: '#' 
+        },
+        { 
+            icon: Settings, 
+            label: 'Settings', 
+            href: activeCircleSlug ? `/circles/${activeCircleSlug}?tab=settings` : '/circles' 
+        },
     ];
 
     return (
@@ -26,7 +119,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         isOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}>
         {/* Header with close button */}
-        <div className="flex items-center justify-between mb-8 md:mb-12">
+        <div className="flex items-center justify-between mb-6 md:mb-8">
             <div className="flex items-center gap-2">
                 <Link href="/" className="flex items-center gap-2 shrink-0">
                     <Image
@@ -48,22 +141,111 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </button>
         </div>
 
+        {/* Circle Switcher Dropdown */}
+        {userCircles.length > 0 && selectedCircle && (
+            <div className="relative mb-6">
+                <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:bg-gray-50/80 transition-all text-left"
+                >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-sm font-bold text-purple-700">
+                            {selectedCircle.imageUrl ? (
+                                <img
+                                    src={selectedCircle.imageUrl}
+                                    alt={selectedCircle.name}
+                                    className="h-full w-full rounded-lg object-cover"
+                                />
+                            ) : (
+                                selectedCircle.name.charAt(0).toUpperCase()
+                            )}
+                        </div>
+                        <div className="min-w-0">
+                            <h4 className="truncate text-sm font-semibold text-gray-900 leading-tight">
+                                {selectedCircle.name}
+                            </h4>
+                            <p className="text-[11px] text-gray-500 font-medium leading-none mt-1">
+                                {selectedCircle.memberCount} members
+                            </p>
+                        </div>
+                    </div>
+                    <svg
+                        className={`h-4 w-4 text-gray-400 transition-transform duration-200 shrink-0 ${
+                            isDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                    <div className="absolute top-full left-0 z-50 mt-1 w-full rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg ring-1 ring-black/5 animate-in fade-in slide-in-from-top-1 duration-100">
+                        <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                            My Circles
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-0.5 mt-1">
+                            {userCircles.map((circle) => (
+                                <button
+                                    key={circle.id}
+                                    onClick={() => handleSwitchCircle(circle)}
+                                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+                                        circle.id === selectedCircle.id
+                                            ? 'bg-purple-50 text-purple-700 font-semibold'
+                                            : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-purple-100 text-xs font-bold text-purple-700">
+                                        {circle.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span className="truncate flex-1">{circle.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="border-t border-gray-100 mt-1.5 pt-1.5">
+                            <Link
+                                href="/circles"
+                                onClick={() => setIsDropdownOpen(false)}
+                                className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+                            >
+                                <span>Manage Circles</span>
+                            </Link>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
         {/* Navigation */}
-        <nav className="space-y-2 flex-1">
-            {navItems.map((item, index) => (
-            <a
-                key={index}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                index === 0
-                    ? 'bg-purple-50 text-purple-600'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-            >
-                <item.icon size={20} />
-                <span className="text-sm font-medium">{item.label}</span>
-            </a>
-            ))}
+        <nav className="space-y-1 flex-1 overflow-y-auto">
+            {navItems.map((item, index) => {
+                const tab = searchParams?.get('tab');
+                const isDashboardActive = item.label === 'Dashboard' && pathname === '/dashboard';
+                const isCirclesActive = item.label === 'Circles' && pathname === '/circles';
+                const isMembersActive = item.label === 'Members' && pathname.startsWith('/circles/') && tab === 'members';
+                const isSettingsActive = item.label === 'Settings' && pathname.startsWith('/circles/') && tab === 'settings';
+                
+                const isActive = isDashboardActive || isCirclesActive || isMembersActive || isSettingsActive;
+
+                return (
+                    <Link
+                        key={index}
+                        href={item.href}
+                        onClick={onClose}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            isActive
+                                ? 'bg-purple-50 text-purple-600 font-semibold'
+                                : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                    >
+                        <item.icon size={20} className={isActive ? 'text-purple-600' : 'text-gray-400'} />
+                        <span className="text-sm font-medium">{item.label}</span>
+                    </Link>
+                );
+            })}
         </nav>
         </div>
     );
