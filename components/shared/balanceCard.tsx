@@ -1,6 +1,9 @@
 import { Eye } from 'lucide-react';
 
-export function BalanceCard() {
+export function BalanceCard({ activeCircle, totalCirclesCount = 1 }: { activeCircle?: any; totalCirclesCount?: number }) {
+    const formattedBalance = activeCircle ? `${activeCircle.currency === 'USD' ? '$' : '₦'}0` : '₦1,250,000';
+    const circlesLabel = totalCirclesCount === 1 ? 'Across 1 circle' : `Across ${totalCirclesCount} circles`;
+
     return (
         <div className="bg-linear-to-br from-green-600 via-green-500 to-green-400 rounded-2xl p-6 md:p-8 text-white relative overflow-hidden">
         {/* Background chart line */}
@@ -24,8 +27,8 @@ export function BalanceCard() {
             </div>
 
             <div className="mb-4 md:mb-6">
-            <h2 className="text-3xl md:text-5xl font-bold mb-1 md:mb-2 text-balance">₦1,250,000</h2>
-            <p className="text-xs md:text-sm opacity-90">Across 4 circles</p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-1 md:mb-2 text-balance">{formattedBalance}</h2>
+            <p className="text-xs md:text-sm opacity-90">{circlesLabel}</p>
             </div>
         </div>
         </div>

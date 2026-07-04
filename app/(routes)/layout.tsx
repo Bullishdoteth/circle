@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, Suspense } from 'react';
 import { Sidebar, SidebarToggle } from '@/components/shared/sidebar';
 import { TopNav } from '@/components/shared/topNav';
 
@@ -44,10 +44,12 @@ export default function AppLayout({
 
             <div className="flex h-screen">
                 {/* Sidebar */}
-                <Sidebar
-                    isOpen={sidebarOpen}
-                    onClose={closeSidebar}
-                />
+                <Suspense fallback={<div className="w-64 bg-white border-r border-gray-200 shrink-0 hidden md:block" />}>
+                    <Sidebar
+                        isOpen={sidebarOpen}
+                        onClose={closeSidebar}
+                    />
+                </Suspense>
 
                 {/* Right Content Area */}
                 <div className="flex flex-1 flex-col min-w-0 md:ml-64">

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 interface Circle {
     id: string;
     name: string;
@@ -9,49 +11,58 @@ interface Circle {
     progressPercent: number;
 }
 
-const circlesData: Circle[] = [
-    {
-        id: '1',
-        name: 'Weekend Friends',
-        members: 12,
-        balance: '₦480,000',
-        image: '👥',
-        progressPercent: 95,
-    },
-    {
-        id: '2',
-        name: 'Rent Group',
-        members: 8,
-        balance: '₦320,000',
-        image: '🏠',
-        progressPercent: 80,
-    },
-    {
-        id: '3',
-        name: 'Family Circle',
-        members: 10,
-        balance: '₦250,000',
-        image: '👨‍👩‍👧‍👦',
-        progressPercent: 65,
-    },
-    {
-        id: '4',
-        name: 'Investment Club',
-        members: 15,
-        balance: '₦200,000',
-        image: '📈',
-        progressPercent: 75,
-    },
-];
+export function TopCircles({ circles = [] }: { circles?: any[] }) {
+    const circlesData: Circle[] = circles.length > 0 
+        ? circles.map((c, i) => ({
+            id: c.id,
+            name: c.name,
+            members: c.memberCount ?? 1,
+            balance: c.currency === 'NGN' ? '₦0' : '$0',
+            image: ['👥', '🏠', '👨‍👩‍👧‍👦', '📈'][i % 4],
+            progressPercent: [95, 80, 65, 75][i % 4],
+        }))
+        : [
+            {
+                id: '1',
+                name: 'Weekend Friends',
+                members: 12,
+                balance: '₦480,000',
+                image: '👥',
+                progressPercent: 95,
+            },
+            {
+                id: '2',
+                name: 'Rent Group',
+                members: 8,
+                balance: '₦320,000',
+                image: '🏠',
+                progressPercent: 80,
+            },
+            {
+                id: '3',
+                name: 'Family Circle',
+                members: 10,
+                balance: '₦250,000',
+                image: '👨‍👩‍👧‍👦',
+                progressPercent: 65,
+            },
+            {
+                id: '4',
+                name: 'Investment Club',
+                members: 15,
+                balance: '₦200,000',
+                image: '📈',
+                progressPercent: 75,
+            },
+        ];
 
-export function TopCircles() {
     return (
         <div className="bg-white rounded-2xl p-4 md:p-6">
         <div className="flex items-center justify-between mb-4 md:mb-6">
             <h2 className="text-base md:text-lg font-bold text-gray-900">Top Circles</h2>
-            <a href="#" className="text-purple-600 font-medium text-xs md:text-sm hover:underline">
+            <Link href="/circles" className="text-purple-600 font-medium text-xs md:text-sm hover:underline">
             View all
-            </a>
+            </Link>
         </div>
 
         <div className="space-y-4 md:space-y-6">
