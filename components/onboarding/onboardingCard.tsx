@@ -8,11 +8,13 @@ import { StepIndicator } from './stepIndicator';
 interface OnboardingCardProps {
     onComplete: (data: CircleFormData) => Promise<void>;
     onCancel: () => void;
+    error?: string;
 }
 
 export const OnboardingCard: React.FC<OnboardingCardProps> = ({
     onComplete,
     onCancel,
+    error,
     }) => {
     const [currentStep, setCurrentStep] = useState<OnboardingStep>(1);
     const [isLoading, setIsLoading] = useState(false);
@@ -43,9 +45,13 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
 
     const handleFinish = async () => {
         setIsLoading(true);
-        await new Promise((r) => setTimeout(r, 500));
-        setIsLoading(false);
-        onComplete(formData);
+        try {
+            await onComplete(formData);
+        } catch (err) {
+            console.error('Error during onboarding submission:', err);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleSkip = () => {
@@ -66,6 +72,16 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
                 }
             }}
             />
+
+            {/* Error Banner */}
+            {error && (
+                <div className="mt-4 mb-2 flex items-center gap-2.5 rounded-xl border border-red-100 bg-red-50/50 p-4 text-sm text-red-600 backdrop-blur-sm">
+                    <svg className="h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="font-medium">{error}</span>
+                </div>
+            )}
 
             {/* Form Animated Steps */}
             <AnimatePresence mode="wait">

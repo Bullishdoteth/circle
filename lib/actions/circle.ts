@@ -3,7 +3,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
-import { circles } from '@/lib/db/schema';
+import { circles, users, circleMembers } from '@/lib/db/schema';
 
 export interface CircleRecord {
     id: string;
@@ -59,6 +59,21 @@ export async function createCircleAction(
         };
         }
 
+        // Retrieve database user record by Clerk's userId
+        const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, userId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return {
+                success: false,
+                error: 'Local user record not found in the database. Please try logging in again.',
+            };
+        }
+
         let finalSlug = input.slug.trim().toLowerCase();
 
         if (!finalSlug) {
@@ -70,26 +85,38 @@ export async function createCircleAction(
 
         const now = new Date();
 
-        const insertedRows = await db
-        .insert(circles)
-        .values({
-            slug: finalSlug,
-            name: input.name.trim(),
-            description: input.description?.trim() || null,
-            imageUrl: input.logoUrl || null,
-            //eslint-disable-next-line @typescript-eslint/no-explicit-any
-            currency: (input.currency || 'NGN') as any,
-            ownerId: userId,
-            createdBy: userId,
-            visibility: input.privacy || 'invite_only',
+        const [insertedCircle] = await db
+            .insert(circles)
+            .values({
+                slug: finalSlug,
+                name: input.name.trim(),
+                description: input.description?.trim() || null,
+                imageUrl: input.logoUrl || null,
+                //eslint-disable-next-line @typescript-eslint/no-explicit-any
+                currency: (input.currency || 'NGN') as any,
+                ownerId: dbUser.id,
+                createdBy: dbUser.id,
+                visibility: input.privacy || 'invite_only',
+                status: 'active',
+                lastActivityAt: now,
+            })
+            .returning();
+
+        if (!insertedCircle) {
+            throw new Error('Failed to create the circle record.');
+        }
+
+        // Create initial owner membership record
+        await db.insert(circleMembers).values({
+            circleId: insertedCircle.id,
+            userId: dbUser.id,
+            role: 'owner',
             status: 'active',
-            lastActivityAt: now,
-        })
-        .returning();
+        });
 
         return {
-        success: true,
-        data: insertedRows[0] as CircleRecord,
+            success: true,
+            data: insertedCircle as CircleRecord,
         };
         //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

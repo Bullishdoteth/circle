@@ -5,30 +5,34 @@ import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { completeOnboarding } from './_actions'
 import { OnboardingCard } from '@/components/onboarding/onboardingCard'
-import { CircleFormData } from '@/types/onboarding'
+import { CircleFormValues } from '@/components/forms/schema/circleFormSchema'
+
+import { toast } from 'sonner'
 
 export default function OnboardingComponent() {
     const [error, setError] = React.useState('')
     const { user } = useUser()
     const router = useRouter()
 
-    const handleSubmit = async (data: CircleFormData) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-        formData.append(key, value);
-    });
-    const res = await completeOnboarding(formData);
+const handleSubmit = async (data: CircleFormValues) => {
+        setError('');
+        const res = await completeOnboarding(data);
 
-    if (res?.message) {
-        await user?.reload();
-        router.push('/dashboard');
-    }
-
-    if (res?.error) {
-        setError(res.error);
-    }
-};
+        if (res.success) {
+            toast.success('Circle created successfully!');
+            await user?.reload();
+            router.push('/dashboard');
+        } else {
+            const errorMsg = res.error ?? 'Something went wrong.';
+            setError(errorMsg);
+            toast.error(errorMsg);
+        }
+    };
     return (
-        <OnboardingCard onComplete={handleSubmit} onCancel={() => router.push('/dashboard')} />
+        <OnboardingCard 
+            onComplete={handleSubmit} 
+            onCancel={() => router.push('/dashboard')} 
+            error={error}
+        />
     )
 }
