@@ -1,26 +1,57 @@
-'use server'
+'use server';
 
-import { auth, clerkClient } from '@clerk/nextjs/server'
+import { auth, clerkClient } from '@clerk/nextjs/server';
 
-export const completeOnboarding = async (formData: FormData) => {
-    const { isAuthenticated, userId } = await auth()
+import type { CircleFormData } from '@/types/onboarding';
+import { circleFormSchema } from '@/components/forms/schema/circleFormSchema';
+import { createCircleAction } from '@/lib/actions/circle';
 
-    if (!isAuthenticated) {
-        return { message: 'No signed-in user' }
+export async function completeOnboarding(data: CircleFormData) {
+    const { userId } = await auth();
+
+    if (!userId) {
+        return {
+            success: false,
+            error: 'You must be signed in to continue.',
+        };
     }
 
-    const client = await clerkClient()
+    // Validate the submitted data
+    const parsed = circleFormSchema.safeParse(data);
 
-    try {
-        const res = await client.users.updateUserMetadata(userId, {
+    if (!parsed.success) {
+        return {
+            success: false,
+            error: 'Please complete all required fields.',
+            fieldErrors: parsed.error.flatten().fieldErrors,
+        };
+    }
+
+    // Create the circle
+    const result = await createCircleAction({
+        ...parsed.data,
+        slug: parsed.data.slug || '',
+    });
+
+    if (!result.success || !result.data) {
+        return {
+            success: false,
+            error: result.error ?? 'Unable to create your circle.',
+        };
+    }
+
+    // Update Clerk metadata
+    const clerk = await clerkClient();
+
+    await clerk.users.updateUserMetadata(userId, {
         publicMetadata: {
             onboardingComplete: true,
-            applicationName: formData.get('applicationName'),
-            applicationType: formData.get('applicationType'),
+            activeCircleId: result.data.id,
         },
-        })
-        return { message: res.publicMetadata }
-    } catch {
-        return { error: 'There was an error updating the user metadata.' }
-    }
+    });
+
+    return {
+        success: true,
+        circleId: result.data.id,
+    };
 }
