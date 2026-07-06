@@ -124,7 +124,7 @@ export async function createCircleAction(
         }
 
         // Provision Virtual Account via Nomba
-        let accountName = `Circle - ${insertedCircle.name}`.trim();
+        let accountName = `Circle ${insertedCircle.name}`.replace(/[^a-zA-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
         if (accountName.length < 8) {
             accountName = `${accountName} Account`;
         }
