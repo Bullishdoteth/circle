@@ -309,4 +309,25 @@ export const payouts = pgTable("payouts", {
     circleIdx: index("payout_circle_idx").on(table.circleId),
     userIdx: index("payout_user_idx").on(table.userId),
     referenceIdx: index("payout_ref_idx").on(table.reference),
+}));
+
+/**
+ * Live User Notifications
+ */
+export const notifications = pgTable("notifications", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    circleId: uuid("circle_id")
+        .references(() => circles.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    type: text("type").default("info").notNull(), // 'info', 'success', 'warning', 'invite'
+    read: boolean("read").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (table) => ({
+    userIdx: index("notification_user_idx").on(table.userId),
+    readIdx: index("notification_read_idx").on(table.read),
 })); 

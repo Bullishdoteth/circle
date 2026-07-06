@@ -1,11 +1,9 @@
 'use client';
 
-import { Bell } from 'lucide-react';
 import { ReactNode } from 'react';
 import Image from 'next/image';
-
-
 import { Show, UserButton } from '@clerk/nextjs'
+import { NotificationBell } from './notificationBell';
 
 interface TopNavProps {
     userImage: string;
@@ -23,10 +21,7 @@ export function TopNav({ sidebarToggle }: TopNavProps) {
                 </div>
 
                 <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                <button className="relative p-2 hover:bg-gray-100 rounded-full transition-colors">
-                    <Bell size={20} className="md:w-6 md:h-6 text-gray-700" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <NotificationBell />
 
                 <Show when="signed-in">
                     <UserButton />

@@ -7,6 +7,7 @@ import { payouts, circles, users, circleMembers } from '@/lib/db/schema';
 import { nombaRequest } from '@/lib/nomba';
 import type { ActionResponse } from './circle';
 import { sendPayoutProcessedEmail } from '@/lib/mail';
+import { createNotificationAction } from '@/lib/actions/notifications';
 
 export interface PayoutRecord {
     id: string;
@@ -234,9 +235,17 @@ export async function createPayoutAction(input: {
                     bankName: input.bankName,
                     accountNumber: input.accountNumber,
                 });
+
+                await createNotificationAction({
+                    userId: input.userId,
+                    circleId: input.circleId,
+                    title: 'Payout Disbursed',
+                    message: `A payout of ₦${parseFloat(input.amount).toLocaleString()} from circle "${circle.name}" has been transferred to your bank account.`,
+                    type: 'success',
+                });
             }
         } catch (emailErr) {
-            console.error('Failed to send payout email notification:', emailErr);
+            console.error('Failed to send payout notifications:', emailErr);
         }
 
         return { success: true, data: insertedPayout as PayoutRecord };
