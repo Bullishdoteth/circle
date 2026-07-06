@@ -80,10 +80,24 @@ export async function createCircleAction(
         let finalSlug = input.slug.trim().toLowerCase();
 
         if (!finalSlug) {
-        finalSlug = input.name
-            .toLowerCase()
-            .replace(/[^a-z0-9 -]/g, '')
-            .replace(/\s+/g, '-');
+            finalSlug = input.name
+                .toLowerCase()
+                .replace(/[^a-z0-9 -]/g, '')
+                .replace(/\s+/g, '-');
+        }
+
+        // Check if slug is already taken
+        const [existingCircle] = await db
+            .select({ id: circles.id })
+            .from(circles)
+            .where(and(eq(circles.slug, finalSlug), isNull(circles.deletedAt)))
+            .limit(1);
+
+        if (existingCircle) {
+            return {
+                success: false,
+                error: `A circle named "${input.name.trim()}" (or with the slug "${finalSlug}") already exists. Please choose a unique name.`,
+            };
         }
 
         const now = new Date();
