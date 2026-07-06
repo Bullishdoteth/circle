@@ -26,9 +26,6 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
         logoUrl: null,
         privacy: 'invite_only',
         members: [],
-        targetAmount: 5000,
-        monthlyContribution: 250,
-        cycleLengthMonths: 10,
     });
 
     const updateFormData = (data: Partial<CircleFormData>) => {

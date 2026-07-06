@@ -3,6 +3,8 @@ export interface LogoPreset {
     name: string;
     iconBg: string;
     emoji: string;
+    bgClass?: string;
+    borderClass?: string;
 }
 
 export const LOGO_PRESETS: LogoPreset[] = [

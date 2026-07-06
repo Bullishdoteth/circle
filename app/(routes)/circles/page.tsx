@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Users, Lock, Mail, ArrowRight } from 'lucide-react';
 import { getMyCirclesAction, type CircleRecord } from '@/lib/actions/circle';
+import { CreateCircleButton } from '@/components/circles/createCircleButton';
 
 type CircleWithCount = CircleRecord & { memberCount: number };
 
@@ -111,13 +112,7 @@ export default function CirclesPage() {
                             All savings circles you own and manage.
                         </p>
                     </div>
-                    <Link
-                        href="/onboarding"
-                        className="inline-flex shrink-0 items-center gap-2 rounded-full bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
-                    >
-                        <Plus size={18} />
-                        New Circle
-                    </Link>
+                    <CreateCircleButton />
                 </div>
 
                 {/* Content */}
