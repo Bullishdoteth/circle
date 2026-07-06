@@ -138,6 +138,7 @@ export async function createCircleAction(
             // Send emails in background
             Promise.all(insertedInvitations.map((inv) => {
                 const inviteLink = `${protocol}://${host}/invitations/${inv.token}`;
+                console.log(`[Invitation] Onboarding invite created for ${inv.email}: ${inviteLink}`);
                 return sendCircleInviteEmail({
                     to: inv.email,
                     circleName: insertedCircle.name,
@@ -512,6 +513,7 @@ export async function inviteCircleMemberAction(
         const host = headersList.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const inviteLink = `${protocol}://${host}/invitations/${insertedInvitation.token}`;
+        console.log(`[Invitation] Created member invite for ${email}: ${inviteLink}`);
 
         // Send email
         try {

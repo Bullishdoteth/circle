@@ -19,7 +19,7 @@ export async function sendCircleInviteEmail({
     role: string;
     inviteLink: string;
 }) {
-    const from = process.env.EMAIL_FROM || 'Circles <onboarding@resend.dev>';
+    const from = process.env.EMAIL_FROM || 'Circles <invitations@newnaija.ng>';
     const subject = `You've been invited to join the circle "${circleName}"`;
 
     try {
