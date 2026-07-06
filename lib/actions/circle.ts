@@ -887,46 +887,43 @@ export async function acceptInvitationAction(
             return { success: true, data: { slug: circle.slug } };
         }
 
-        // We run updates in a transaction
-        const targetSlug = await db.transaction(async (tx) => {
-            // Count active members to assign rotation index
-            const activeMembers = await tx
-                .select()
-                .from(circleMembers)
-                .where(and(eq(circleMembers.circleId, invitation.circleId), eq(circleMembers.status, 'active')));
-            const nextPosition = activeMembers.length + 1;
+        // Count active members to assign rotation index
+        const activeMembers = await db
+            .select()
+            .from(circleMembers)
+            .where(and(eq(circleMembers.circleId, invitation.circleId), eq(circleMembers.status, 'active')));
+        const nextPosition = activeMembers.length + 1;
 
-            // Insert member
-            await tx.insert(circleMembers).values({
-                circleId: invitation.circleId,
-                userId: dbUser.id,
-                role: invitation.role,
-                status: 'active',
-                invitedBy: invitation.invitedBy,
-                acceptedAt: new Date(),
-                rotationPosition: nextPosition,
-            });
-
-            // Update invitation
-            await tx
-                .update(invitations)
-                .set({
-                    status: 'accepted',
-                    acceptedAt: new Date(),
-                    invitedUserId: dbUser.id,
-                    updatedAt: new Date(),
-                })
-                .where(eq(invitations.id, invitation.id));
-
-            // Get circle slug
-            const [circle] = await tx
-                .select({ slug: circles.slug })
-                .from(circles)
-                .where(eq(circles.id, invitation.circleId))
-                .limit(1);
-
-            return circle.slug;
+        // Insert member
+        await db.insert(circleMembers).values({
+            circleId: invitation.circleId,
+            userId: dbUser.id,
+            role: invitation.role,
+            status: 'active',
+            invitedBy: invitation.invitedBy,
+            acceptedAt: new Date(),
+            rotationPosition: nextPosition,
         });
+
+        // Update invitation
+        await db
+            .update(invitations)
+            .set({
+                status: 'accepted',
+                acceptedAt: new Date(),
+                invitedUserId: dbUser.id,
+                updatedAt: new Date(),
+            })
+            .where(eq(invitations.id, invitation.id));
+
+        // Get circle slug
+        const [circle] = await db
+            .select({ slug: circles.slug })
+            .from(circles)
+            .where(eq(circles.id, invitation.circleId))
+            .limit(1);
+
+        const targetSlug = circle.slug;
 
         // Update Clerk metadata so they skip onboarding and default to this circle
         try {
