@@ -88,8 +88,13 @@ async function PayoutsContent({ searchParams }: PageProps) {
                   userId: m.userId,
                   name: m.name,
                   email: m.email,
+                  payoutBankCode: m.payoutBankCode,
+                  payoutBankName: m.payoutBankName,
+                  payoutAccountNumber: m.payoutAccountNumber,
+                  payoutAccountName: m.payoutAccountName,
                 }))}
                 banks={banks}
+                circleContributionAmount={parseFloat(circleDetails.circle.contributionAmount || '50000')}
               />
             )}
           </div>

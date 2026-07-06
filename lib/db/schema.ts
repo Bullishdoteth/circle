@@ -16,6 +16,10 @@ export const users = pgTable("users", {
     phoneNumber: text("phone_number"),
     onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
+    payoutBankCode: text("payout_bank_code"),
+    payoutBankName: text("payout_bank_name"),
+    payoutAccountNumber: text("payout_account_number"),
+    payoutAccountName: text("payout_account_name"),
     createdAt: timestamp("created_at", {
         withTimezone: true,
     }).defaultNow().notNull(),

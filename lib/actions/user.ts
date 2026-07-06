@@ -1,106 +1,73 @@
-"use server";
+'use server';
 
-import { db } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { auth } from '@clerk/nextjs/server';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db/db';
+import { users } from '@/lib/db/schema';
+import type { ActionResponse } from './circle';
 
-// Create a new user in the database
-export async function createUser(data: {
-    clerkId: string;
-    email: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    username?: string | null;
-    imageUrl?: string | null;
-    phoneNumber?: string | null;
-    }) {
+export interface UserPayoutProfile {
+    payoutBankCode: string | null;
+    payoutBankName: string | null;
+    payoutAccountNumber: string | null;
+    payoutAccountName: string | null;
+}
+
+/**
+ * Fetch personal bank details of the current logged-in user
+ */
+export async function getUserPayoutProfileAction(): Promise<ActionResponse<UserPayoutProfile>> {
     try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const [user] = await db
-        .insert(users)
-        .values({
-            id: crypto.randomUUID(),
-            clerkId: data.clerkId,
-            email: data.email,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            username: data.username,
-            imageUrl: data.imageUrl,
-            phoneNumber: data.phoneNumber,
-        })
-        .returning();
+            .select({
+                payoutBankCode: users.payoutBankCode,
+                payoutBankName: users.payoutBankName,
+                payoutAccountNumber: users.payoutAccountNumber,
+                payoutAccountName: users.payoutAccountName,
+            })
+            .from(users)
+            .where(eq(users.clerkId, clerkId))
+            .limit(1);
 
-        return {
-        success: true,
-        data: user,
-        };
-    } catch (error) {
-        console.error("CREATE_USER_ERROR", error);
+        if (!user) {
+            return { success: false, error: 'User record not found.' };
+        }
 
-        return {
-        success: false,
-        error: "Unable to create user.",
-        };
+        return { success: true, data: user };
+    } catch (error: any) {
+        console.error('Get User Payout Profile Error:', error);
+        return { success: false, error: error.message || 'Failed to fetch payout profile.' };
     }
 }
 
-// Update an existing user in the database
-export async function updateUser(
-    clerkId: string,
-    data: {
-        email?: string;
-        firstName?: string | null;
-        lastName?: string | null;
-        username?: string | null;
-        imageUrl?: string | null;
-        phoneNumber?: string | null;
-    }
-    ) {
+/**
+ * Update personal bank details of the current logged-in user
+ */
+export async function updateUserPayoutProfileAction(input: UserPayoutProfile): Promise<ActionResponse<void>> {
     try {
-        const [user] = await db
-        .update(users)
-        .set({
-            ...data,
-            updatedAt: new Date(),
-        })
-        .where(eq(users.clerkId, clerkId))
-        .returning();
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
 
-        return {
-        success: true,
-        data: user,
-        };
-    } catch (error) {
-        console.error("UPDATE_USER_ERROR", error);
+        await db
+            .update(users)
+            .set({
+                payoutBankCode: input.payoutBankCode,
+                payoutBankName: input.payoutBankName,
+                payoutAccountNumber: input.payoutAccountNumber,
+                payoutAccountName: input.payoutAccountName,
+            })
+            .where(eq(users.clerkId, clerkId));
 
-        return {
-        success: false,
-        error: "Unable to update user.",
-        };
-    }
-}
-
-// Deactivate a user in the database
-export async function deactivateUser(clerkId: string) {
-    try {
-        const [user] = await db
-        .update(users)
-        .set({
-            isActive: false,
-            updatedAt: new Date(),
-        })
-        .where(eq(users.clerkId, clerkId))
-        .returning();
-
-        return {
-        success: true,
-        data: user,
-        };
-    } catch (error) {
-        console.error("DEACTIVATE_USER_ERROR", error);
-
-        return {
-        success: false,
-        error: "Unable to deactivate user.",
-        };
+        return { success: true };
+    } catch (error: any) {
+        console.error('Update User Payout Profile Error:', error);
+        return { success: false, error: error.message || 'Failed to update payout profile.' };
     }
 }
