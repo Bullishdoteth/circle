@@ -11,7 +11,7 @@ interface Circle {
     progressPercent: number;
 }
 
-export function TopCircles({ circles = [] }: { circles?: any[] }) {
+export function TopCircles({ circles = [] }: { circles?: Array<{ id: string; name: string; memberCount?: number; currency?: string }> }) {
     const circlesData: Circle[] = circles.length > 0 
         ? circles.map((c, i) => ({
             id: c.id,

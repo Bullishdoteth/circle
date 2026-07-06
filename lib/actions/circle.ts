@@ -2,10 +2,11 @@
 
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql, or } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
-import { circles, users, circleMembers, invitations } from '@/lib/db/schema';
+import { circles, users, circleMembers, invitations, virtualAccounts } from '@/lib/db/schema';
 import { sendCircleInviteEmail } from '@/lib/mail';
+import { nombaRequest } from '@/lib/nomba';
 
 export interface CircleRecord {
     id: string;
@@ -107,6 +108,64 @@ export async function createCircleAction(
         if (!insertedCircle) {
             throw new Error('Failed to create the circle record.');
         }
+
+        // Provision Virtual Account via Nomba
+        let accountName = `Circle - ${insertedCircle.name}`.trim();
+        if (accountName.length < 8) {
+            accountName = `${accountName} Account`;
+        }
+        if (accountName.length > 64) {
+            accountName = accountName.substring(0, 64);
+        }
+
+        const accountRef = `circle_${insertedCircle.id.replace(/-/g, '')}`;
+
+        let bankName = 'Nomba MFB';
+        let bankAccountNumber = '';
+        let bankAccountName = accountName;
+
+        try {
+            console.log(`[Nomba] Provisioning virtual account for circle: ${insertedCircle.id}`);
+            const vaData = await nombaRequest<any>('POST', '/v1/accounts/virtual', {
+                body: {
+                    accountRef,
+                    accountName,
+                }
+            });
+
+            console.log('[Nomba] Virtual account response:', vaData);
+            const bank = vaData?.banks?.[0] || {};
+            bankName = bank.bankName || vaData?.bankName || 'Nomba MFB';
+            bankAccountNumber = bank.bankAccountNumber || vaData?.bankAccountNumber || '';
+            bankAccountName = bank.bankAccountName || vaData?.bankAccountName || accountName;
+
+            if (!bankAccountNumber) {
+                throw new Error('No bank account number returned from Nomba API.');
+            }
+        } catch (apiError: any) {
+            console.error('[Nomba] Failed to provision virtual account:', apiError);
+            const isSandbox = process.env.NOMBA_ENV !== 'production';
+            if (isSandbox) {
+                console.warn('[Nomba] Using mock details for fallback in sandbox.');
+                bankName = 'Wema Bank (Sandbox)';
+                bankAccountNumber = `99${Math.floor(10000000 + Math.random() * 90000000)}`;
+                bankAccountName = accountName;
+            } else {
+                throw new Error(`Failed to create Nomba virtual account for this circle: ${apiError.message || String(apiError)}`);
+            }
+        }
+
+        // Save virtual account details to DB
+        await db.insert(virtualAccounts).values({
+            circleId: insertedCircle.id,
+            accountRef,
+            accountName,
+            bankName,
+            bankAccountNumber,
+            bankAccountName,
+            currency: 'NGN',
+            status: 'active',
+        });
 
         // Create initial owner membership record
         await db.insert(circleMembers).values({
@@ -248,13 +307,26 @@ export interface CircleDetails {
     members: CircleMemberDetail[];
     invitations: CircleInvitationDetail[];
     currentUserRole: 'owner' | 'admin' | 'treasurer' | 'member' | null;
+    virtualAccount?: {
+        id: string;
+        circleId: string;
+        accountRef: string;
+        accountName: string;
+        bankName: string;
+        bankAccountNumber: string;
+        bankAccountName: string;
+        currency: string;
+        status: string;
+        createdAt: string | Date;
+        updatedAt: string | Date;
+    } | null;
 }
 
 /**
  * Get circles where the current authenticated user is a member
  */
 export async function getMyCirclesAction(): Promise<
-    ActionResponse<Array<CircleRecord & { memberCount: number }>>
+    ActionResponse<Array<CircleRecord & { memberCount: number; userRole: 'owner' | 'admin' | 'treasurer' | 'member' }>>
 > {
     try {
         const { userId } = await auth();
@@ -283,6 +355,7 @@ export async function getMyCirclesAction(): Promise<
         const rows = await db
             .select({
                 circle: circles,
+                role: circleMembers.role,
             })
             .from(circles)
             .innerJoin(circleMembers, eq(circleMembers.circleId, circles.id))
@@ -311,6 +384,7 @@ export async function getMyCirclesAction(): Promise<
                 return {
                     ...row.circle,
                     memberCount: countResult[0]?.count ?? 1,
+                    userRole: row.role as 'owner' | 'admin' | 'treasurer' | 'member',
                 };
             })
         );
@@ -319,11 +393,11 @@ export async function getMyCirclesAction(): Promise<
             success: true,
             data,
         };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Get My Circles Error:', error);
         return {
             success: false,
-            error: error.message || 'An unexpected error occurred.',
+            error: error instanceof Error ? error.message : 'An unexpected error occurred.',
         };
     }
 }
@@ -415,6 +489,13 @@ export async function getCircleDetailsAction(
         const currentUserMember = members.find((m) => m.userId === dbUser.id);
         const currentUserRole = currentUserMember ? currentUserMember.role : null;
 
+        // Fetch circle's Nomba virtual account details
+        const [virtualAccount] = await db
+            .select()
+            .from(virtualAccounts)
+            .where(eq(virtualAccounts.circleId, circle.id))
+            .limit(1);
+
         return {
             success: true,
             data: {
@@ -422,6 +503,7 @@ export async function getCircleDetailsAction(
                 members,
                 invitations: invitationsList,
                 currentUserRole,
+                virtualAccount: virtualAccount || null,
             },
         };
     } catch (error: any) {
@@ -852,5 +934,49 @@ export async function declineInvitationAction(
     } catch (error: any) {
         console.error('Decline Invitation Error:', error);
         return { success: false, error: error.message || 'Failed to decline invitation.' };
+    }
+}
+
+export async function getCircleRoleAction(
+    circleSlug: string
+): Promise<ActionResponse<'owner' | 'admin' | 'treasurer' | 'member' | null>> {
+    try {
+        const { userId } = await auth();
+
+        if (!userId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, userId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return { success: false, error: 'User not found' };
+        }
+
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(circleSlug);
+        const [member] = await db
+            .select({ role: circleMembers.role })
+            .from(circleMembers)
+            .innerJoin(circles, eq(circles.id, circleMembers.circleId))
+            .where(
+                and(
+                    eq(circleMembers.userId, dbUser.id),
+                    eq(circleMembers.status, 'active'),
+                    isUuid 
+                        ? or(eq(circles.id, circleSlug), eq(circles.slug, circleSlug))
+                        : eq(circles.slug, circleSlug)
+                )
+            )
+            .limit(1);
+
+        return { success: true, data: member ? member.role as 'owner' | 'admin' | 'treasurer' | 'member' : null };
+    } catch (error) {
+        console.error('Get Circle Role Error:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to get circle role.' };
     }
 }

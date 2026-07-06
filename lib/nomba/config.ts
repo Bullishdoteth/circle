@@ -44,14 +44,37 @@ export function getNombaConfig(): NombaConfig {
         rawEnv === 'production' ? 'production' : 'sandbox';
 
     const baseUrl = (
-        process.env.NOMBA_BASE_URL ?? BASE_URLS[environment]
+        process.env.NOMBA_BASE_URL || BASE_URLS[environment]
     ).replace(/\/+$/, '');
+
+    const clientId = process.env.NOMBA_CLIENT_ID || '';
+    if (!clientId) {
+        throw new Error(
+            "[nomba] Missing required environment variable: NOMBA_CLIENT_ID. Add it to .env.local."
+        );
+    }
+
+    const clientSecret =
+        process.env.NOMBA_CLIENT_SECRET || process.env.NOMBA_PRIVATE_KEY || '';
+    if (!clientSecret) {
+        throw new Error(
+            "[nomba] Missing required environment variable: NOMBA_CLIENT_SECRET or NOMBA_PRIVATE_KEY. Add it to .env.local."
+        );
+    }
+
+    const accountId =
+        process.env.NOMBA_ACCOUNT_ID || process.env.NOMBA_PARENT_ACCOUNT_ID || '';
+    if (!accountId) {
+        throw new Error(
+            "[nomba] Missing required environment variable: NOMBA_ACCOUNT_ID or NOMBA_PARENT_ACCOUNT_ID. Add it to .env.local."
+        );
+    }
 
     return {
         environment,
         baseUrl,
-        clientId: requireEnv('NOMBA_CLIENT_ID'),
-        clientSecret: requireEnv('NOMBA_CLIENT_SECRET'),
-        accountId: requireEnv('NOMBA_ACCOUNT_ID'),
+        clientId,
+        clientSecret,
+        accountId,
     };
 }

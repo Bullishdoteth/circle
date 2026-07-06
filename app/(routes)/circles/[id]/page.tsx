@@ -119,6 +119,48 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                 />
             </div>
 
+            {details.virtualAccount ? (
+                <div className="rounded-2xl border border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 p-6">
+                    <h3 className="text-sm font-bold text-gray-900 font-space-grotesk flex items-center gap-2">
+                        <Wallet size={16} className="text-purple-600" />
+                        Circle Bank Deposit Account
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Send bank transfers directly to this account to contribute to this circle. Reconciliations are processed automatically.
+                    </p>
+                    
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-semibold block uppercase">Bank Name</span>
+                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount.bankName}</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-semibold block uppercase">Account Number</span>
+                            <div className="flex items-center justify-between mt-1">
+                                <span className="text-xs font-mono font-bold text-purple-700">{details.virtualAccount.bankAccountNumber}</span>
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(details.virtualAccount.bankAccountNumber);
+                                        toast.success('Account number copied to clipboard!');
+                                    }}
+                                    className="text-[10px] text-purple-600 hover:text-purple-800 font-semibold"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-semibold block uppercase">Account Name</span>
+                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount.bankAccountName}</span>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center text-xs text-gray-400">
+                    No virtual deposit account has been provisioned for this circle.
+                </div>
+            )}
+
             <div className="rounded-2xl border border-gray-100 bg-white p-6">
                 <h3 className="text-sm font-bold text-gray-900">About</h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">

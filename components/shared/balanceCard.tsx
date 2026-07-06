@@ -1,6 +1,6 @@
 import { Eye } from 'lucide-react';
 
-export function BalanceCard({ activeCircle, totalCirclesCount = 1 }: { activeCircle?: any; totalCirclesCount?: number }) {
+export function BalanceCard({ activeCircle, totalCirclesCount = 1 }: { activeCircle?: { currency: string } | null; totalCirclesCount?: number }) {
     const formattedBalance = activeCircle ? `${activeCircle.currency === 'USD' ? '$' : '₦'}0` : '₦1,250,000';
     const circlesLabel = totalCirclesCount === 1 ? 'Across 1 circle' : `Across ${totalCirclesCount} circles`;
 
