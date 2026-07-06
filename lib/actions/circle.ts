@@ -302,6 +302,10 @@ export interface CircleMemberDetail {
     joinedAt: Date | string;
     rotationPosition?: number | null;
     payoutDate?: Date | string | null;
+    payoutBankCode?: string | null;
+    payoutBankName?: string | null;
+    payoutAccountNumber?: string | null;
+    payoutAccountName?: string | null;
 }
 
 export interface CircleInvitationDetail {
@@ -469,6 +473,10 @@ export async function getCircleDetailsAction(
                 joinedAt: circleMembers.createdAt,
                 rotationPosition: circleMembers.rotationPosition,
                 payoutDate: circleMembers.payoutDate,
+                payoutBankCode: users.payoutBankCode,
+                payoutBankName: users.payoutBankName,
+                payoutAccountNumber: users.payoutAccountNumber,
+                payoutAccountName: users.payoutAccountName,
             })
             .from(circleMembers)
             .innerJoin(users, eq(users.id, circleMembers.userId))
@@ -485,6 +493,10 @@ export async function getCircleDetailsAction(
             joinedAt: row.joinedAt,
             rotationPosition: row.rotationPosition,
             payoutDate: row.payoutDate,
+            payoutBankCode: row.payoutBankCode,
+            payoutBankName: row.payoutBankName,
+            payoutAccountNumber: row.payoutAccountNumber,
+            payoutAccountName: row.payoutAccountName,
         }));
 
         const invitationRows = await db

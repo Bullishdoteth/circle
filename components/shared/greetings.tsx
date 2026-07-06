@@ -5,6 +5,8 @@ import { useUser } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
+import { PayoutSettingsButton } from './payoutSettingsButton';
+
 export function Greetings() {
     const { user } = useUser();
     const searchParams = useSearchParams();
@@ -40,14 +42,18 @@ export function Greetings() {
         'there';
 
     return (
-        <div className="mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 text-balance font-space-grotesk">
-                {greeting}, {userName} 👋
-            </h1>
-
-            <p className="mt-1 text-xs text-gray-600 md:text-sm">
-                Here&apos;s what&apos;s happening in your circles today.
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 text-balance font-space-grotesk">
+                    {greeting}, {userName} 👋
+                </h1>
+                <p className="mt-1 text-xs text-gray-600 md:text-sm">
+                    Here&apos;s what&apos;s happening in your circles today.
+                </p>
+            </div>
+            <div className="shrink-0">
+                <PayoutSettingsButton />
+            </div>
         </div>
     );
 }

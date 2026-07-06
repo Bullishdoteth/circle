@@ -10,15 +10,20 @@ interface Member {
     userId: string;
     name: string;
     email: string;
+    payoutBankCode?: string | null;
+    payoutBankName?: string | null;
+    payoutAccountNumber?: string | null;
+    payoutAccountName?: string | null;
 }
 
 interface Props {
     circleId: string;
     members: Member[];
     banks: NombaBank[];
+    circleContributionAmount: number;
 }
 
-export function CreatePayoutDialog({ circleId, members, banks }: Props) {
+export function CreatePayoutDialog({ circleId, members, banks, circleContributionAmount }: Props) {
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -29,6 +34,28 @@ export function CreatePayoutDialog({ circleId, members, banks }: Props) {
     const [accountNumber, setAccountNumber] = useState('');
     const [accountName, setAccountName] = useState('');
     const [round, setRound] = useState('Round 1');
+
+    const handleRecipientChange = (userId: string) => {
+        setSelectedUser(userId);
+        if (userId) {
+            const member = members.find((m) => m.userId === userId);
+            if (member) {
+                // Pre-fill amount with the payout pool total (contribution amount * member count)
+                const poolTotal = circleContributionAmount * members.length;
+                setAmount(String(poolTotal));
+                
+                // Pre-fill bank details if they exist on user record
+                setSelectedBank(member.payoutBankCode || '');
+                setAccountNumber(member.payoutAccountNumber || '');
+                setAccountName(member.payoutAccountName || '');
+            }
+        } else {
+            setAmount('');
+            setSelectedBank('');
+            setAccountNumber('');
+            setAccountName('');
+        }
+    };
 
     const handleCreatePayout = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,7 +129,7 @@ export function CreatePayoutDialog({ circleId, members, banks }: Props) {
                                 <select
                                     required
                                     value={selectedUser}
-                                    onChange={(e) => setSelectedUser(e.target.value)}
+                                    onChange={(e) => handleRecipientChange(e.target.value)}
                                     className="w-full rounded-xl border border-gray-200 p-2.5 text-xs text-gray-800 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
                                 >
                                     <option value="">Select Recipient...</option>
