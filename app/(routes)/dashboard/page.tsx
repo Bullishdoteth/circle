@@ -96,7 +96,7 @@ function DashboardContent() {
 
                     {/* Middle Section - Recent Activity and Top Circles */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-                        <RecentActivity />
+                        <RecentActivity activeCircleSlug={activeCircle?.slug || 'all'} />
                         <TopCircles circles={circles} />
                     </div>
 
