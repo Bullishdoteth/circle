@@ -242,7 +242,12 @@ export async function nombaRequest<T>(
         );
     }
 
-    if (json.code !== NOMBA_SUCCESS_CODE) {
+    const isSuccess =
+        json.code === NOMBA_SUCCESS_CODE ||
+        json.code === '200' ||
+        String(json.code).toUpperCase() === 'SUCCESS';
+
+    if (!isSuccess) {
         throw new NombaError(
             `Nomba request failed (${method} ${path}): ${
                 json.description || 'unknown error'
