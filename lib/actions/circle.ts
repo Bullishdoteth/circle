@@ -7,6 +7,7 @@ import { db } from '@/lib/db/db';
 import { circles, users, circleMembers, invitations, virtualAccounts } from '@/lib/db/schema';
 import { sendCircleInviteEmail } from '@/lib/mail';
 import { nombaRequest } from '@/lib/nomba';
+import { createNotificationAction } from '@/lib/actions/notifications';
 
 export interface CircleRecord {
     id: string;
@@ -624,6 +625,21 @@ export async function inviteCircleMemberAction(
             console.error('Failed to send invitation email:', mailError);
         }
 
+        // Trigger in-app notification if target user exists in DB
+        if (targetUser) {
+            try {
+                await createNotificationAction({
+                    userId: targetUser.id,
+                    circleId: circleId,
+                    title: 'New Circle Invitation',
+                    message: `You have been invited to join the circle "${circle.name}" as a ${role}.`,
+                    type: 'invite',
+                });
+            } catch (err) {
+                console.error('Failed to create invitation notification:', err);
+            }
+        }
+
         return {
             success: true,
             data: {
@@ -918,6 +934,28 @@ export async function acceptInvitationAction(
             });
         } catch (clerkError) {
             console.error('Failed to update Clerk metadata during invite acceptance:', clerkError);
+        }
+
+        // Trigger notification
+        try {
+            const [circle] = await db
+                .select({ name: circles.name })
+                .from(circles)
+                .where(eq(circles.id, invitation.circleId))
+                .limit(1);
+
+            if (circle) {
+                const memberName = [dbUser.firstName, dbUser.lastName].filter(Boolean).join(' ') || dbUser.email.split('@')[0];
+                await createNotificationAction({
+                    userId: invitation.invitedBy,
+                    circleId: invitation.circleId,
+                    title: 'Invitation Accepted',
+                    message: `${memberName} has accepted your invitation and joined the circle "${circle.name}".`,
+                    type: 'success',
+                });
+            }
+        } catch (notifError) {
+            console.error('Failed to create invitation accepted notification:', notifError);
         }
 
         return { success: true, data: { slug: targetSlug } };

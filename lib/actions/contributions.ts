@@ -6,6 +6,7 @@ import { db } from '@/lib/db/db';
 import { contributions, circles, users, circleMembers, payouts } from '@/lib/db/schema';
 import type { ActionResponse } from './circle';
 import { sendContributionReconciledEmail } from '@/lib/mail';
+import { createNotificationAction } from '@/lib/actions/notifications';
 
 export interface ContributionRecord {
     id: string;
@@ -201,9 +202,17 @@ export async function reconcileContributionAction(
                     circleName: circle.name,
                     round: round || '1',
                 });
+
+                await createNotificationAction({
+                    userId: targetUserId,
+                    circleId: contribution.circleId,
+                    title: 'Payment Received',
+                    message: `Your contribution of ₦${parseFloat(contribution.amount).toLocaleString()} for Round ${round || '1'} has been successfully reconciled.`,
+                    type: 'success',
+                });
             }
         } catch (emailErr) {
-            console.error('Failed to send reconciliation email notification:', emailErr);
+            console.error('Failed to send reconciliation notifications:', emailErr);
         }
 
         return { success: true, data: { success: true } };
