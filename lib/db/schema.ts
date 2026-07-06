@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, pgEnum, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 
 /**
  * Core Identity
@@ -216,4 +216,91 @@ export const invitations = pgTable("invitations", {
     emailIdx: index("invitation_email_idx").on(table.email),
     circleIdx: index("invitation_circle_idx").on(table.circleId),
     invitedUserIdx: index("invitation_invited_user_idx").on(table.invitedUserId),
+})); 
+
+/**
+ * Circle Nomba Virtual Account
+ */
+export const virtualAccounts = pgTable("virtual_accounts", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    circleId: uuid("circle_id")
+        .notNull()
+        .unique()
+        .references(() => circles.id, { onDelete: "cascade" }),
+    accountRef: text("account_ref").notNull().unique(),
+    accountName: text("account_name").notNull(),
+    bankName: text("bank_name").notNull(),
+    bankAccountNumber: text("bank_account_number").notNull().unique(),
+    bankAccountName: text("bank_account_name").notNull(),
+    currency: text("currency").default("NGN").notNull(),
+    status: text("status").default("active").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+        .defaultNow()
+        .$onUpdate(() => new Date())
+        .notNull(),
+}, (table) => ({
+    circleIdx: index("va_circle_idx").on(table.circleId),
+    bankAccountIdx: index("va_bank_account_idx").on(table.bankAccountNumber),
+}));
+
+/**
+ * Circle Member Contributions (Deposits)
+ */
+export const contributions = pgTable("contributions", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    circleId: uuid("circle_id")
+        .notNull()
+        .references(() => circles.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+        .references(() => users.id, { onDelete: "set null" }),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    status: text("status").default("pending").notNull(), // 'pending', 'success', 'failed', 'reversed'
+    reference: text("reference").notNull().unique(), // Nomba transactionId or unique ref
+    senderName: text("sender_name"),
+    senderBank: text("sender_bank"),
+    senderAccountNumber: text("sender_account_number"),
+    round: text("round"),
+    reconciled: boolean("reconciled").default(false).notNull(),
+    reconciledAt: timestamp("reconciled_at", { withTimezone: true }),
+    reconciledBy: uuid("reconciled_by").references(() => users.id, { onDelete: "set null" }),
+    rawPayload: text("raw_payload"), // Store JSON stringified payload
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+        .defaultNow()
+        .$onUpdate(() => new Date())
+        .notNull(),
+}, (table) => ({
+    circleIdx: index("contribution_circle_idx").on(table.circleId),
+    userIdx: index("contribution_user_idx").on(table.userId),
+    referenceIdx: index("contribution_ref_idx").on(table.reference),
+}));
+
+/**
+ * Circle Member Payouts (Withdrawals/Disbursements)
+ */
+export const payouts = pgTable("payouts", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    circleId: uuid("circle_id")
+        .notNull()
+        .references(() => circles.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+        .notNull()
+        .references(() => users.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    status: text("status").default("pending").notNull(), // 'pending', 'success', 'failed'
+    reference: text("reference").notNull().unique(), // Nomba transfer payout reference
+    destinationBank: text("destination_bank").notNull(),
+    destinationAccountNumber: text("destination_account_number").notNull(),
+    destinationAccountName: text("destination_account_name").notNull(),
+    round: text("round"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+        .defaultNow()
+        .$onUpdate(() => new Date())
+        .notNull(),
+}, (table) => ({
+    circleIdx: index("payout_circle_idx").on(table.circleId),
+    userIdx: index("payout_user_idx").on(table.userId),
+    referenceIdx: index("payout_ref_idx").on(table.reference),
 })); 

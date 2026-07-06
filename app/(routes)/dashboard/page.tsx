@@ -10,10 +10,19 @@ import { RecentActivity } from '@/components/shared/recentActivity';
 import { SecurityCard } from '@/components/shared/securityCard';
 import { TopCircles } from '@/components/shared/topCircles';
 
+interface DashboardCircle {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    visibility: string;
+    currency: string;
+}
+
 function DashboardContent() {
     const searchParams = useSearchParams();
-    const [circles, setCircles] = useState<any[]>([]);
-    const [activeCircle, setActiveCircle] = useState<any>(null);
+    const [circles, setCircles] = useState<DashboardCircle[]>([]);
+    const [activeCircle, setActiveCircle] = useState<DashboardCircle | null>(null);
     const [loading, setLoading] = useState(true);
 
     const circleSlug = searchParams?.get('circle') ?? null;

@@ -1,6 +1,6 @@
 import { TrendingUp } from 'lucide-react';
 
-    export function ContributionsCard({ activeCircle }: { activeCircle?: any }) {
+    export function ContributionsCard({ activeCircle }: { activeCircle?: { currency: string } | null }) {
     const contrib = activeCircle ? `${activeCircle.currency === 'USD' ? '$' : '₦'}0` : '₦850,000';
     return (
         <div className="bg-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">

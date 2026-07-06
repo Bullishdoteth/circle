@@ -1,6 +1,9 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { db } from '@/lib/db/db';
+import { eq } from 'drizzle-orm';
+import { virtualAccounts, contributions, payouts } from '@/lib/db/schema';
 import { verifyNombaWebhook } from '@/lib/nomba/webhook';
 import type { NombaWebhookPayload } from '@/lib/nomba/types';
 
@@ -75,43 +78,166 @@ export async function POST(req: Request) {
 }
 
 /**
- * Dispatch a verified event. Persistence is stubbed — Circle has no
- * transactions/payments table yet; wire these to DB writes when contribution
- * and payout ledgers land.
+ * Dispatch a verified event. Handles virtual account deposit mapping
+ * and payout status updates.
  */
 async function handleEvent(event: NombaWebhookPayload): Promise<void> {
-    const transactionId = event.data?.transaction?.transactionId;
+    const paymentDetails = event.data?.paymentDetails as any;
+    const virtualAccount = event.data?.virtualAccount as any;
+    const transaction = event.data?.transaction as any;
+
+    const bankAccountNumber = 
+        paymentDetails?.accountNumber || 
+        paymentDetails?.bankAccountNumber ||
+        virtualAccount?.accountNumber || 
+        virtualAccount?.bankAccountNumber ||
+        transaction?.bankAccountNumber ||
+        transaction?.accountNumber ||
+        (event.data as any)?.bankAccountNumber;
+
+    const accountRef = 
+        virtualAccount?.accountRef || 
+        virtualAccount?.accountReference || 
+        transaction?.accountRef ||
+        transaction?.accountReference ||
+        (event.data as any)?.accountRef;
+
+    const transactionId = 
+        transaction?.transactionId || 
+        (event.data as any)?.transactionId || 
+        event.requestId;
+
+    const amount = 
+        transaction?.amount || 
+        paymentDetails?.amount || 
+        (event.data as any)?.amount || 
+        '0.00';
 
     switch (event.event_type) {
-        case 'payment_success':
-            // TODO: mark contribution as paid, credit the circle.
-            console.log('[Nomba Webhook] payment_success', { transactionId });
+        case 'payment_success': {
+            if (!transactionId) {
+                throw new Error('payment_success event missing transaction ID');
+            }
+
+            console.log('[Nomba Webhook] processing payment_success', {
+                transactionId,
+                bankAccountNumber,
+                accountRef,
+                amount,
+            });
+
+            // Find matching virtual account in DB
+            let vaRecord = null;
+            if (bankAccountNumber) {
+                [vaRecord] = await db
+                    .select()
+                    .from(virtualAccounts)
+                    .where(eq(virtualAccounts.bankAccountNumber, bankAccountNumber))
+                    .limit(1);
+            }
+            if (!vaRecord && accountRef) {
+                [vaRecord] = await db
+                    .select()
+                    .from(virtualAccounts)
+                    .where(eq(virtualAccounts.accountRef, accountRef))
+                    .limit(1);
+            }
+
+            if (!vaRecord) {
+                console.warn('[Nomba Webhook] No matching virtual account found for deposit.', {
+                    bankAccountNumber,
+                    accountRef,
+                });
+                return;
+            }
+
+            // Check if contribution already exists (idempotency check)
+            const [existing] = await db
+                .select()
+                .from(contributions)
+                .where(eq(contributions.reference, transactionId))
+                .limit(1);
+
+            if (existing) {
+                console.log('[Nomba Webhook] Contribution already exists, skipping duplicate.', { transactionId });
+                if (existing.status !== 'success') {
+                    await db
+                        .update(contributions)
+                        .set({ status: 'success', updatedAt: new Date() })
+                        .where(eq(contributions.id, existing.id));
+                }
+                return;
+            }
+
+            // Retrieve sender info if present
+            const senderName = transaction?.senderName || transaction?.senderAccountName || paymentDetails?.senderName || null;
+            const senderBank = transaction?.senderBank || paymentDetails?.senderBank || null;
+            const senderAccountNumber = transaction?.senderAccountNumber || paymentDetails?.senderAccountNumber || null;
+
+            // Insert unreconciled contribution
+            await db.insert(contributions).values({
+                circleId: vaRecord.circleId,
+                userId: null, // Initially unmatched
+                amount: String(amount),
+                status: 'success',
+                reference: transactionId,
+                senderName,
+                senderBank,
+                senderAccountNumber,
+                reconciled: false,
+                rawPayload: JSON.stringify(event),
+            });
+            console.log('[Nomba Webhook] Unreconciled contribution recorded successfully.');
             break;
+        }
 
         case 'payment_failed':
-            // TODO: mark contribution attempt as failed.
-            console.log('[Nomba Webhook] payment_failed', { transactionId });
+        case 'payment_reversal': {
+            if (transactionId) {
+                const newStatus = event.event_type === 'payment_failed' ? 'failed' : 'reversed';
+                await db
+                    .update(contributions)
+                    .set({
+                        status: newStatus,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(contributions.reference, transactionId));
+                console.log(`[Nomba Webhook] Updated contribution ${transactionId} status to: ${newStatus}`);
+            }
             break;
-
-        case 'payment_reversal':
-            // TODO: reverse a previously credited contribution.
-            console.log('[Nomba Webhook] payment_reversal', { transactionId });
-            break;
+        }
 
         case 'payout_success':
-            // TODO: mark payout as completed.
-            console.log('[Nomba Webhook] payout_success', { transactionId });
+        case 'payout_failed': {
+            const payoutRef = transaction?.merchantTxRef || transactionId;
+            if (payoutRef) {
+                const newStatus = event.event_type === 'payout_success' ? 'success' : 'failed';
+                await db
+                    .update(payouts)
+                    .set({
+                        status: newStatus,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(payouts.reference, payoutRef));
+                console.log(`[Nomba Webhook] Updated payout ${payoutRef} status to: ${newStatus}`);
+            }
             break;
+        }
 
-        case 'payout_failed':
-            // TODO: mark payout as failed, release the hold.
-            console.log('[Nomba Webhook] payout_failed', { transactionId });
+        case 'payout_refund': {
+            const payoutRef = transaction?.merchantTxRef || transactionId;
+            if (payoutRef) {
+                await db
+                    .update(payouts)
+                    .set({
+                        status: 'refunded',
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(payouts.reference, payoutRef));
+                console.log(`[Nomba Webhook] Updated payout ${payoutRef} status to: refunded`);
+            }
             break;
-
-        case 'payout_refund':
-            // TODO: record refunded payout back to the circle balance.
-            console.log('[Nomba Webhook] payout_refund', { transactionId });
-            break;
+        }
 
         default:
             console.log('[Nomba Webhook] Ignoring event', {
