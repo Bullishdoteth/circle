@@ -81,8 +81,11 @@ export async function getPayoutsAction(
 export async function fetchNombaBanksAction(): Promise<ActionResponse<NombaBank[]>> {
     try {
         console.log('[Nomba] Fetching bank codes and names');
-        const response = await nombaRequest<{ results: NombaBank[] }>('GET', '/v1/transfers/banks');
-        return { success: true, data: response?.results || [] };
+        const response = await nombaRequest<any>('GET', '/v1/transfers/banks');
+        const data = Array.isArray(response)
+            ? response
+            : (response?.results || response?.data || []);
+        return { success: true, data };
     } catch (error: any) {
         console.error('Fetch Nomba Banks Error:', error);
         // Fallback static list in case sandbox API is unreachable
