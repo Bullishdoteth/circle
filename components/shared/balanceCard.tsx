@@ -1,7 +1,14 @@
 import { Eye } from 'lucide-react';
 
-export function BalanceCard({ activeCircle, totalCirclesCount = 1 }: { activeCircle?: { currency: string } | null; totalCirclesCount?: number }) {
-    const formattedBalance = activeCircle ? `${activeCircle.currency === 'USD' ? '$' : '₦'}0` : '₦1,250,000';
+interface Props {
+    activeCircle?: { currency: string } | null;
+    totalCirclesCount?: number;
+    totalBalance?: number;
+}
+
+export function BalanceCard({ activeCircle, totalCirclesCount = 1, totalBalance = 0 }: Props) {
+    const currencySymbol = activeCircle?.currency === 'USD' ? '$' : '₦';
+    const formattedBalance = `${currencySymbol}${totalBalance.toLocaleString()}`;
     const circlesLabel = totalCirclesCount === 1 ? 'Across 1 circle' : `Across ${totalCirclesCount} circles`;
 
     return (

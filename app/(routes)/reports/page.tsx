@@ -9,6 +9,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { getCircleRoleAction, getMyCirclesAction } from '@/lib/actions/circle';
+import { getReportsStatsAction } from '@/lib/actions/contributions';
 
 interface PageProps {
   searchParams: Promise<{
@@ -39,8 +40,23 @@ async function ReportsContent({ searchParams }: PageProps) {
   const userCircles = circlesRes.success ? circlesRes.data || [] : [];
   const activeCircle = circleSlug ? userCircles.find(c => c.slug === circleSlug) : userCircles[0];
 
-  const circleName = activeCircle ? activeCircle.name : 'All Circles';
-  const currency = activeCircle ? activeCircle.currency : 'NGN';
+  if (!activeCircle) {
+    redirect('/dashboard?error=nocircles');
+  }
+
+  const statsRes = await getReportsStatsAction(activeCircle.slug);
+  const stats = statsRes.success && statsRes.data ? statsRes.data : null;
+
+  if (!stats) {
+    return (
+      <div className="p-8 text-center text-gray-500 bg-white rounded-3xl border border-gray-100">
+        Failed to load report statistics for this circle.
+      </div>
+    );
+  }
+
+  const circleName = stats.circleName;
+  const currency = stats.currency;
 
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
@@ -74,7 +90,7 @@ async function ReportsContent({ searchParams }: PageProps) {
               <span>Projected Savings</span>
             </div>
             <p className="text-2xl font-bold text-gray-900 mt-2">
-              {currency === 'NGN' ? '₦1,250,000' : '$2,500'}
+              {currency === 'USD' ? '$' : '₦'}{stats.projectedSavings.toLocaleString()}
             </p>
             <p className="text-[11px] text-gray-400 mt-1 font-medium">
               Based on active contribution schedule
@@ -86,9 +102,9 @@ async function ReportsContent({ searchParams }: PageProps) {
               <CheckCircle2 size={16} className="text-purple-500" />
               <span>Avg Compliance Rate</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">84.2%</p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">{stats.avgComplianceRate}%</p>
             <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-              Top 10% compliance across platforms
+              Across all finished rotation cycles
             </p>
           </div>
 
@@ -97,9 +113,9 @@ async function ReportsContent({ searchParams }: PageProps) {
               <Users size={16} className="text-purple-500" />
               <span>Circle Health</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">Excellent</p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">{stats.health}</p>
             <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-              All slots successfully filled
+              Based on contribution schedules
             </p>
           </div>
         </div>
@@ -116,26 +132,16 @@ async function ReportsContent({ searchParams }: PageProps) {
             </div>
             {/* Chart Area */}
             <div className="h-60 flex items-end gap-3 pt-6 border-b border-gray-100 pb-2">
-              <div className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-purple-200/50 hover:bg-purple-300 rounded-t-lg transition-all h-[20%]" />
-                <span className="text-[10px] font-semibold text-gray-400">R1</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-purple-200/80 hover:bg-purple-300 rounded-t-lg transition-all h-[40%]" />
-                <span className="text-[10px] font-semibold text-gray-400">R2</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-purple-400 hover:bg-purple-500 rounded-t-lg transition-all h-[60%]" />
-                <span className="text-[10px] font-semibold text-gray-400">R3</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-purple-500 hover:bg-purple-600 rounded-t-lg transition-all h-[80%]" />
-                <span className="text-[10px] font-semibold text-gray-400">R4</span>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full bg-purple-600 hover:bg-purple-700 rounded-t-lg transition-all h-[100%]" />
-                <span className="text-[10px] font-semibold text-gray-400">R5</span>
-              </div>
+              {stats.chartData.map((item) => (
+                <div key={item.round} className="flex-1 flex flex-col items-center gap-2">
+                  <div 
+                    className="w-full bg-purple-500 hover:bg-purple-600 rounded-t-lg transition-all" 
+                    style={{ height: `${Math.max(5, item.heightPercentage)}%` }}
+                    title={`${currency === 'USD' ? '$' : '₦'}${item.amount.toLocaleString()}`}
+                  />
+                  <span className="text-[10px] font-semibold text-gray-400">{item.round}</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -149,55 +155,35 @@ async function ReportsContent({ searchParams }: PageProps) {
             </div>
             
             <div className="space-y-4 pt-2">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>Ada Lovelace</span>
-                  <span>100% (Paid 1/1)</span>
+              {stats.membersData.map((m) => (
+                <div key={m.userId} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
+                    <span className="flex items-center gap-1.5">
+                      {m.name}
+                      {m.rotationPosition && (
+                        <span className="text-[9px] bg-purple-50 text-purple-600 border border-purple-100 rounded-sm px-1 py-0.5 font-bold uppercase">
+                          Round {m.rotationPosition}
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      {m.compliancePercentage}% (Paid {m.paidRounds}/{m.totalRounds})
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${
+                        m.currentRoundStatus === 'paid' 
+                          ? 'bg-emerald-500' 
+                          : m.currentRoundStatus === 'overdue' 
+                            ? 'bg-rose-500' 
+                            : 'bg-amber-500'
+                      }`} 
+                      style={{ width: `${m.compliancePercentage}%` }} 
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>Alan Turing</span>
-                  <span>100% (Paid 1/1)</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>Grace Hopper</span>
-                  <span>100% (Paid 1/1)</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>Margaret Hamilton</span>
-                  <span>0% (Pending Round 1)</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gray-300 rounded-full" style={{ width: '0%' }} />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>Charles Babbage</span>
-                  <span>0% (Overdue Round 1)</span>
-                </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-400 rounded-full" style={{ width: '0%' }} />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
