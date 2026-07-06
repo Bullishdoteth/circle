@@ -16,9 +16,6 @@ export interface CircleFormData {
     logoUrl: string | null;
     privacy: PrivacyOption;
     members: CircleMember[];
-    targetAmount?: number;
-    monthlyContribution?: number;
-    cycleLengthMonths?: number;
 }
 
 export type OnboardingStep = 1 | 2;

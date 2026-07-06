@@ -1,9 +1,11 @@
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { headers } from 'next/headers';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
 import { circles, users, circleMembers, invitations } from '@/lib/db/schema';
+import { sendCircleInviteEmail } from '@/lib/mail';
 
 export interface CircleRecord {
     id: string;
@@ -14,7 +16,7 @@ export interface CircleRecord {
     currency: 'NGN' | 'USD' | 'EUR' | 'GBP';
     ownerId: string;
     visibility: 'invite_only' | 'private';
-    status: 'active' | 'archived' | 'suspended';
+    status: 'active' | 'archived' | 'suspended' | 'deleted';
     createdBy: string;
     lastActivityAt: string | Date | null;
     createdAt: string | Date;
@@ -61,7 +63,7 @@ export async function createCircleAction(
 
         // Retrieve database user record by Clerk's userId
         const dbUser = await db
-            .select({ id: users.id })
+            .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
             .from(users)
             .where(eq(users.clerkId, userId))
             .limit(1)
@@ -119,14 +121,34 @@ export async function createCircleAction(
             const invitationValues = input.members.map((member) => ({
                 circleId: insertedCircle.id,
                 invitedBy: dbUser.id,
-                email: member.email,
+                email: member.email.trim().toLowerCase(),
                 token: crypto.randomUUID(),
                 role: (member.role === 'Admin' ? 'admin' : 'member') as 'admin' | 'member',
                 status: 'pending' as const,
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
             }));
 
-            await db.insert(invitations).values(invitationValues);
+            const insertedInvitations = await db.insert(invitations).values(invitationValues).returning();
+
+            const inviterName = [dbUser.firstName, dbUser.lastName].filter(Boolean).join(' ') || dbUser.email.split('@')[0];
+            const headersList = await headers();
+            const host = headersList.get('host') || 'localhost:3000';
+            const protocol = host.includes('localhost') ? 'http' : 'https';
+
+            // Send emails in background
+            Promise.all(insertedInvitations.map((inv) => {
+                const inviteLink = `${protocol}://${host}/invitations/${inv.token}`;
+                return sendCircleInviteEmail({
+                    to: inv.email,
+                    circleName: insertedCircle.name,
+                    inviterName,
+                    inviterEmail: dbUser.email,
+                    role: inv.role,
+                    inviteLink,
+                });
+            })).catch((err) => {
+                console.error('Failed to send some onboarding invitation emails:', err);
+            });
         }
 
         return {
@@ -423,7 +445,7 @@ export async function inviteCircleMemberAction(
         }
 
         const dbUser = await db
-            .select({ id: users.id })
+            .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
             .from(users)
             .where(eq(users.clerkId, userId))
             .limit(1)
@@ -431,6 +453,16 @@ export async function inviteCircleMemberAction(
 
         if (!dbUser) {
             return { success: false, error: 'User not found' };
+        }
+
+        const [circle] = await db
+            .select({ name: circles.name })
+            .from(circles)
+            .where(eq(circles.id, circleId))
+            .limit(1);
+
+        if (!circle) {
+            return { success: false, error: 'Circle not found.' };
         }
 
         const [targetUser] = await db
@@ -474,6 +506,26 @@ export async function inviteCircleMemberAction(
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
             })
             .returning();
+
+        const inviterName = [dbUser.firstName, dbUser.lastName].filter(Boolean).join(' ') || dbUser.email.split('@')[0];
+        const headersList = await headers();
+        const host = headersList.get('host') || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const inviteLink = `${protocol}://${host}/invitations/${insertedInvitation.token}`;
+
+        // Send email
+        try {
+            await sendCircleInviteEmail({
+                to: email.trim().toLowerCase(),
+                circleName: circle.name,
+                inviterName,
+                inviterEmail: dbUser.email,
+                role: role,
+                inviteLink,
+            });
+        } catch (mailError) {
+            console.error('Failed to send invitation email:', mailError);
+        }
 
         return {
             success: true,
@@ -561,5 +613,242 @@ export async function updateCircleSettingsAction(
     } catch (error: any) {
         console.error('Update Circle Settings Error:', error);
         return { success: false, error: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+export interface InvitationDetails {
+    id: string;
+    email: string;
+    circleName: string;
+    circleDescription: string | null;
+    circleImageUrl: string | null;
+    inviterName: string;
+    inviterEmail: string;
+    role: 'owner' | 'admin' | 'treasurer' | 'member';
+    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked';
+    expiresAt: Date;
+}
+
+export async function getInvitationDetailsAction(
+    token: string
+): Promise<ActionResponse<InvitationDetails>> {
+    try {
+        const [invitation] = await db
+            .select()
+            .from(invitations)
+            .where(eq(invitations.token, token))
+            .limit(1);
+
+        if (!invitation) {
+            return { success: false, error: 'Invitation not found.' };
+        }
+
+        const [circle] = await db
+            .select()
+            .from(circles)
+            .where(eq(circles.id, invitation.circleId))
+            .limit(1);
+
+        if (!circle) {
+            return { success: false, error: 'Circle not found.' };
+        }
+
+        const inviter = invitation.invitedBy 
+            ? await db
+                .select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+                .from(users)
+                .where(eq(users.id, invitation.invitedBy))
+                .limit(1)
+                .then((rows) => rows[0])
+            : null;
+
+        const inviterName = inviter
+            ? [inviter.firstName, inviter.lastName].filter(Boolean).join(' ') || inviter.email.split('@')[0]
+            : 'Someone';
+
+        return {
+            success: true,
+            data: {
+                id: invitation.id,
+                email: invitation.email,
+                circleName: circle.name,
+                circleDescription: circle.description,
+                circleImageUrl: circle.imageUrl,
+                inviterName,
+                inviterEmail: inviter?.email || '',
+                role: invitation.role as any,
+                status: invitation.status as any,
+                expiresAt: invitation.expiresAt,
+            },
+        };
+    } catch (error: any) {
+        console.error('Get Invitation Details Error:', error);
+        return { success: false, error: error.message || 'Failed to load invitation.' };
+    }
+}
+
+export async function acceptInvitationAction(
+    token: string
+): Promise<ActionResponse<{ slug: string }>> {
+    try {
+        const { userId } = await auth();
+
+        if (!userId) {
+            return { success: false, error: 'Unauthorized: Please log in to accept the invitation.' };
+        }
+
+        // Get DB user record
+        const dbUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.clerkId, userId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return { success: false, error: 'User record not found in the database. Please complete your profile.' };
+        }
+
+        // Get invitation
+        const [invitation] = await db
+            .select()
+            .from(invitations)
+            .where(eq(invitations.token, token))
+            .limit(1);
+
+        if (!invitation) {
+            return { success: false, error: 'Invitation not found.' };
+        }
+
+        if (invitation.status !== 'pending') {
+            return { success: false, error: `This invitation has already been ${invitation.status}.` };
+        }
+
+        if (new Date() > invitation.expiresAt) {
+            // Update invitation status to expired
+            await db
+                .update(invitations)
+                .set({ status: 'expired', updatedAt: new Date() })
+                .where(eq(invitations.id, invitation.id));
+            return { success: false, error: 'This invitation has expired.' };
+        }
+
+        // Check if user is already an active member of the circle
+        const [existingMember] = await db
+            .select()
+            .from(circleMembers)
+            .where(and(eq(circleMembers.circleId, invitation.circleId), eq(circleMembers.userId, dbUser.id)))
+            .limit(1);
+
+        if (existingMember && existingMember.status === 'active') {
+            // Update invitation to accepted since they are already a member
+            await db
+                .update(invitations)
+                .set({
+                    status: 'accepted',
+                    acceptedAt: new Date(),
+                    invitedUserId: dbUser.id,
+                    updatedAt: new Date(),
+                })
+                .where(eq(invitations.id, invitation.id));
+
+            const [circle] = await db
+                .select({ slug: circles.slug })
+                .from(circles)
+                .where(eq(circles.id, invitation.circleId))
+                .limit(1);
+
+            return { success: true, data: { slug: circle.slug } };
+        }
+
+        // We run updates in a transaction
+        const targetSlug = await db.transaction(async (tx) => {
+            // Insert member
+            await tx.insert(circleMembers).values({
+                circleId: invitation.circleId,
+                userId: dbUser.id,
+                role: invitation.role,
+                status: 'active',
+                invitedBy: invitation.invitedBy,
+                acceptedAt: new Date(),
+            });
+
+            // Update invitation
+            await tx
+                .update(invitations)
+                .set({
+                    status: 'accepted',
+                    acceptedAt: new Date(),
+                    invitedUserId: dbUser.id,
+                    updatedAt: new Date(),
+                })
+                .where(eq(invitations.id, invitation.id));
+
+            // Get circle slug
+            const [circle] = await tx
+                .select({ slug: circles.slug })
+                .from(circles)
+                .where(eq(circles.id, invitation.circleId))
+                .limit(1);
+
+            return circle.slug;
+        });
+
+        // Update Clerk metadata so they skip onboarding and default to this circle
+        try {
+            const clerk = await clerkClient();
+            await clerk.users.updateUserMetadata(userId, {
+                publicMetadata: {
+                    onboardingComplete: true,
+                    activeCircleId: invitation.circleId,
+                },
+            });
+        } catch (clerkError) {
+            console.error('Failed to update Clerk metadata during invite acceptance:', clerkError);
+        }
+
+        return { success: true, data: { slug: targetSlug } };
+    } catch (error: any) {
+        console.error('Accept Invitation Error:', error);
+        return { success: false, error: error.message || 'Failed to accept invitation.' };
+    }
+}
+
+export async function declineInvitationAction(
+    token: string
+): Promise<ActionResponse<void>> {
+    try {
+        const { userId } = await auth();
+
+        if (!userId) {
+            return { success: false, error: 'Unauthorized: Please log in to decline the invitation.' };
+        }
+
+        const [invitation] = await db
+            .select()
+            .from(invitations)
+            .where(eq(invitations.token, token))
+            .limit(1);
+
+        if (!invitation) {
+            return { success: false, error: 'Invitation not found.' };
+        }
+
+        if (invitation.status !== 'pending') {
+            return { success: false, error: `This invitation is already ${invitation.status}.` };
+        }
+
+        await db
+            .update(invitations)
+            .set({
+                status: 'declined',
+                updatedAt: new Date(),
+            })
+            .where(eq(invitations.id, invitation.id));
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Decline Invitation Error:', error);
+        return { success: false, error: error.message || 'Failed to decline invitation.' };
     }
 }
