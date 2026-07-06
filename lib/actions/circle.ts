@@ -144,15 +144,7 @@ export async function createCircleAction(
             }
         } catch (apiError: any) {
             console.error('[Nomba] Failed to provision virtual account:', apiError);
-            const isSandbox = process.env.NOMBA_ENV !== 'production';
-            if (isSandbox) {
-                console.warn('[Nomba] Using mock details for fallback in sandbox.');
-                bankName = 'Wema Bank (Sandbox)';
-                bankAccountNumber = `99${Math.floor(10000000 + Math.random() * 90000000)}`;
-                bankAccountName = accountName;
-            } else {
-                throw new Error(`Failed to create Nomba virtual account for this circle: ${apiError.message || String(apiError)}`);
-            }
+            throw new Error(`Failed to create Nomba virtual account for this circle: ${apiError.message || String(apiError)}`);
         }
 
         // Save virtual account details to DB

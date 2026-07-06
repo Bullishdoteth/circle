@@ -192,13 +192,7 @@ export async function createPayoutAction(input: {
             }
         } catch (apiError: any) {
             console.error('[Nomba] Failed to execute transfer API:', apiError);
-            const isSandbox = process.env.NOMBA_ENV !== 'production';
-            if (isSandbox) {
-                console.warn('[Nomba] Simulating successful payout in sandbox mode.');
-                status = 'success';
-            } else {
-                return { success: false, error: `Failed to initiate bank transfer: ${apiError.message || String(apiError)}` };
-            }
+            return { success: false, error: `Failed to initiate bank transfer: ${apiError.message || String(apiError)}` };
         }
 
         // Record payout in the database
