@@ -179,6 +179,7 @@ export async function createCircleAction(
             userId: dbUser.id,
             role: 'owner',
             status: 'active',
+            rotationPosition: 1,
         });
 
         // Create initial member invitation records
@@ -298,6 +299,8 @@ export interface CircleMemberDetail {
     role: 'owner' | 'admin' | 'treasurer' | 'member';
     status: 'active' | 'suspended' | 'removed';
     joinedAt: Date | string;
+    rotationPosition?: number | null;
+    payoutDate?: Date | string | null;
 }
 
 export interface CircleInvitationDetail {
@@ -463,6 +466,8 @@ export async function getCircleDetailsAction(
                 role: circleMembers.role,
                 status: circleMembers.status,
                 joinedAt: circleMembers.createdAt,
+                rotationPosition: circleMembers.rotationPosition,
+                payoutDate: circleMembers.payoutDate,
             })
             .from(circleMembers)
             .innerJoin(users, eq(users.id, circleMembers.userId))
@@ -477,6 +482,8 @@ export async function getCircleDetailsAction(
             role: row.role as any,
             status: row.status as any,
             joinedAt: row.joinedAt,
+            rotationPosition: row.rotationPosition,
+            payoutDate: row.payoutDate,
         }));
 
         const invitationRows = await db
@@ -643,6 +650,10 @@ export async function updateCircleSettingsAction(
         slug: string;
         description?: string;
         privacy?: 'invite_only' | 'private';
+        contributionAmount?: number;
+        payoutMethod?: string;
+        frequency?: string;
+        currentRound?: number;
     }
 ): Promise<ActionResponse<CircleRecord>> {
     try {
@@ -691,6 +702,10 @@ export async function updateCircleSettingsAction(
                 slug: cleanSlug,
                 description: data.description?.trim() || null,
                 visibility: data.privacy,
+                contributionAmount: data.contributionAmount !== undefined ? String(data.contributionAmount) : undefined,
+                payoutMethod: data.payoutMethod,
+                frequency: data.frequency,
+                currentRound: data.currentRound,
                 updatedAt: new Date(),
             })
             .where(eq(circles.id, circleId))
@@ -853,6 +868,13 @@ export async function acceptInvitationAction(
 
         // We run updates in a transaction
         const targetSlug = await db.transaction(async (tx) => {
+            // Count active members to assign rotation index
+            const activeMembers = await tx
+                .select()
+                .from(circleMembers)
+                .where(and(eq(circleMembers.circleId, invitation.circleId), eq(circleMembers.status, 'active')));
+            const nextPosition = activeMembers.length + 1;
+
             // Insert member
             await tx.insert(circleMembers).values({
                 circleId: invitation.circleId,
@@ -861,6 +883,7 @@ export async function acceptInvitationAction(
                 status: 'active',
                 invitedBy: invitation.invitedBy,
                 acceptedAt: new Date(),
+                rotationPosition: nextPosition,
             });
 
             // Update invitation
@@ -984,5 +1007,61 @@ export async function getCircleRoleAction(
     } catch (error) {
         console.error('Get Circle Role Error:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Failed to get circle role.' };
+    }
+}
+
+/**
+ * Update a member's payout schedule/rotation index
+ */
+export async function updateCircleMemberPayoutAction(
+    circleId: string,
+    memberUserId: string,
+    updates: {
+        rotationPosition?: number | null;
+        payoutDate?: Date | null;
+    }
+): Promise<ActionResponse<void>> {
+    try {
+        const { userId } = await auth();
+
+        if (!userId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, userId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return { success: false, error: 'User not found' };
+        }
+
+        // Verify if caller is owner or admin
+        const [caller] = await db
+            .select()
+            .from(circleMembers)
+            .where(and(eq(circleMembers.circleId, circleId), eq(circleMembers.userId, dbUser.id)))
+            .limit(1);
+
+        if (!caller || (caller.role !== 'owner' && caller.role !== 'admin')) {
+            return { success: false, error: 'You do not have permission to manage this circle.' };
+        }
+
+        await db
+            .update(circleMembers)
+            .set({
+                rotationPosition: updates.rotationPosition !== undefined ? updates.rotationPosition : undefined,
+                payoutDate: updates.payoutDate !== undefined ? updates.payoutDate : undefined,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(circleMembers.circleId, circleId), eq(circleMembers.userId, memberUserId)));
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Update Circle Member Payout Error:', error);
+        return { success: false, error: error.message || 'An unexpected error occurred.' };
     }
 }

@@ -5,6 +5,7 @@ import { and, eq, isNull, sql, desc, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
 import { contributions, circles, users, circleMembers, payouts } from '@/lib/db/schema';
 import type { ActionResponse } from './circle';
+import { sendContributionReconciledEmail } from '@/lib/mail';
 
 export interface ContributionRecord {
     id: string;
@@ -178,6 +179,32 @@ export async function reconcileContributionAction(
                 updatedAt: new Date(),
             })
             .where(eq(contributions.id, contributionId));
+
+        // Send payment confirmation email notification
+        try {
+            const [targetUser] = await db
+                .select({ email: users.email })
+                .from(users)
+                .where(eq(users.id, targetUserId))
+                .limit(1);
+            
+            const [circle] = await db
+                .select({ name: circles.name })
+                .from(circles)
+                .where(eq(circles.id, contribution.circleId))
+                .limit(1);
+
+            if (targetUser && circle) {
+                await sendContributionReconciledEmail({
+                    to: targetUser.email,
+                    amount: contribution.amount,
+                    circleName: circle.name,
+                    round: round || '1',
+                });
+            }
+        } catch (emailErr) {
+            console.error('Failed to send reconciliation email notification:', emailErr);
+        }
 
         return { success: true, data: { success: true } };
     } catch (error: any) {
@@ -448,11 +475,375 @@ export async function getRecentActivityAction(
 
         // Sort by date desc and limit to 5 items
         activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        const data = activities.slice(0, 5);
 
-        return { success: true, data };
+        return { success: true, data: activities.slice(0, 5) };
     } catch (error: any) {
         console.error('Get Recent Activity Error:', error);
         return { success: false, error: error.message || 'Failed to fetch recent activity' };
+    }
+}
+
+export interface DashboardStats {
+    totalBalance: number;
+    contributionsThisMonth: number;
+    complianceRate: number;
+    totalCircles: number;
+}
+
+export async function getDashboardStatsAction(
+    circleSlug?: string | null
+): Promise<ActionResponse<DashboardStats>> {
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, clerkId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return { success: false, error: 'User not found' };
+        }
+
+        // Get the list of circles the user belongs to
+        const userCircles = await db
+            .select({ 
+                circleId: circleMembers.circleId,
+                role: circleMembers.role,
+                status: circleMembers.status,
+                circleName: circles.name,
+                circleSlug: circles.slug,
+                currentRound: circles.currentRound,
+                contributionAmount: circles.contributionAmount,
+            })
+            .from(circleMembers)
+            .innerJoin(circles, eq(circles.id, circleMembers.circleId))
+            .where(and(eq(circleMembers.userId, dbUser.id), eq(circleMembers.status, 'active')));
+
+        if (userCircles.length === 0) {
+            return {
+                success: true,
+                data: {
+                    totalBalance: 0,
+                    contributionsThisMonth: 0,
+                    complianceRate: 0,
+                    totalCircles: 0,
+                }
+            };
+        }
+
+        let activeCircles = userCircles;
+        if (circleSlug && circleSlug !== 'all') {
+            activeCircles = userCircles.filter(c => c.circleSlug === circleSlug);
+        }
+
+        if (activeCircles.length === 0) {
+            return {
+                success: true,
+                data: {
+                    totalBalance: 0,
+                    contributionsThisMonth: 0,
+                    complianceRate: 0,
+                    totalCircles: userCircles.length,
+                }
+            };
+        }
+
+        const activeCircleIds = activeCircles.map(c => c.circleId);
+
+        // 1. Calculate Total Balance
+        // Sum reconciled contributions
+        const contribSumRes = await db
+            .select({ total: sql<number>`sum(amount)::float` })
+            .from(contributions)
+            .where(and(inArray(contributions.circleId, activeCircleIds), eq(contributions.reconciled, true)));
+        const totalContribs = contribSumRes[0]?.total || 0;
+
+        // Sum successful payouts
+        const payoutSumRes = await db
+            .select({ total: sql<number>`sum(amount)::float` })
+            .from(payouts)
+            .where(and(inArray(payouts.circleId, activeCircleIds), eq(payouts.status, 'success')));
+        const totalPayouts = payoutSumRes[0]?.total || 0;
+
+        const totalBalance = Math.max(0, totalContribs - totalPayouts);
+
+        // 2. Contributions This Month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const monthContribRes = await db
+            .select({ total: sql<number>`sum(amount)::float` })
+            .from(contributions)
+            .where(
+                and(
+                    inArray(contributions.circleId, activeCircleIds),
+                    eq(contributions.reconciled, true),
+                    sql`${contributions.reconciledAt} >= ${startOfMonth}`,
+                    sql`${contributions.reconciledAt} <= ${endOfMonth}`
+                )
+            );
+        const contributionsThisMonth = monthContribRes[0]?.total || 0;
+
+        // 3. Compliance Rate
+        let totalExpected = 0;
+        let totalActual = 0;
+
+        for (const ac of activeCircles) {
+            // Count total active members in this circle
+            const memberCountRes = await db
+                .select({ count: sql<number>`count(*)::int` })
+                .from(circleMembers)
+                .where(and(eq(circleMembers.circleId, ac.circleId), eq(circleMembers.status, 'active')));
+            const count = memberCountRes[0]?.count || 0;
+            totalExpected += count;
+
+            // Count members who have contributed in current round
+            const paidCountRes = await db
+                .select({ count: sql<number>`count(distinct ${contributions.userId})::int` })
+                .from(contributions)
+                .where(
+                    and(
+                        eq(contributions.circleId, ac.circleId),
+                        eq(contributions.round, String(ac.currentRound)),
+                        eq(contributions.reconciled, true)
+                    )
+                );
+            const paidCount = paidCountRes[0]?.count || 0;
+            totalActual += paidCount;
+        }
+
+        const complianceRate = totalExpected > 0 ? Math.min(100, Math.round((totalActual / totalExpected) * 100)) : 100;
+
+        return {
+            success: true,
+            data: {
+                totalBalance,
+                contributionsThisMonth,
+                complianceRate,
+                totalCircles: userCircles.length
+            }
+        };
+    } catch (error: any) {
+        console.error('Get Dashboard Stats Error:', error);
+        return { success: false, error: error.message || 'Failed to fetch dashboard stats' };
+    }
+}
+
+export interface ReportMemberItem {
+    userId: string;
+    name: string;
+    email: string;
+    imageUrl: string | null;
+    paidRounds: number;
+    totalRounds: number;
+    currentRoundStatus: 'paid' | 'pending' | 'overdue';
+    compliancePercentage: number;
+    rotationPosition: number | null;
+    payoutDate: string | null;
+}
+
+export interface ReportRoundChartItem {
+    round: string;
+    amount: number;
+    heightPercentage: number;
+}
+
+export interface ReportStats {
+    projectedSavings: number;
+    avgComplianceRate: number;
+    health: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+    currency: string;
+    circleName: string;
+    chartData: ReportRoundChartItem[];
+    membersData: ReportMemberItem[];
+}
+
+export async function getReportsStatsAction(
+    circleSlug: string
+): Promise<ActionResponse<ReportStats>> {
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const dbUser = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.clerkId, clerkId))
+            .limit(1)
+            .then((rows) => rows[0]);
+
+        if (!dbUser) {
+            return { success: false, error: 'User not found' };
+        }
+
+        // Get the active circle
+        const [circle] = await db
+            .select()
+            .from(circles)
+            .where(and(eq(circles.slug, circleSlug), isNull(circles.deletedAt)))
+            .limit(1);
+
+        if (!circle) {
+            return { success: false, error: 'Circle not found.' };
+        }
+
+        // Fetch active members in the circle
+        const membersList = await db
+            .select({
+                memberId: circleMembers.id,
+                userId: users.id,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+                imageUrl: users.imageUrl,
+                rotationPosition: circleMembers.rotationPosition,
+                payoutDate: circleMembers.payoutDate,
+            })
+            .from(circleMembers)
+            .innerJoin(users, eq(users.id, circleMembers.userId))
+            .where(and(eq(circleMembers.circleId, circle.id), eq(circleMembers.status, 'active')));
+
+        const memberCount = membersList.length;
+
+        // 1. Projected Savings = contributionAmount * memberCount
+        const contributionVal = parseFloat(circle.contributionAmount);
+        const projectedSavings = contributionVal * memberCount;
+
+        // 2. Average Compliance Rate
+        const currentRoundNum = circle.currentRound;
+        const totalExpectedContribs = currentRoundNum * memberCount * contributionVal;
+
+        // Sum actual reconciled contributions
+        const actualContribSumRes = await db
+            .select({ total: sql<number>`sum(amount)::float` })
+            .from(contributions)
+            .where(and(eq(contributions.circleId, circle.id), eq(contributions.reconciled, true)));
+        const totalActualContribs = actualContribSumRes[0]?.total || 0;
+
+        const avgComplianceRate = totalExpectedContribs > 0 
+            ? Math.min(100, Math.round((totalActualContribs / totalExpectedContribs) * 100)) 
+            : 100;
+
+        // 3. Health status
+        let health: 'Excellent' | 'Good' | 'Fair' | 'Poor' = 'Excellent';
+        if (avgComplianceRate < 50) health = 'Poor';
+        else if (avgComplianceRate < 75) health = 'Fair';
+        else if (avgComplianceRate < 90) health = 'Good';
+
+        // 4. Cumulative Chart Data: Round 1 up to current round
+        const chartData: ReportRoundChartItem[] = [];
+        let maxAmount = 0;
+
+        // Sum contributions round-by-round
+        for (let r = 1; r <= currentRoundNum; r++) {
+            const roundSumRes = await db
+                .select({ total: sql<number>`sum(amount)::float` })
+                .from(contributions)
+                .where(
+                    and(
+                        eq(contributions.circleId, circle.id),
+                        eq(contributions.round, String(r)),
+                        eq(contributions.reconciled, true)
+                    )
+                );
+            const amount = roundSumRes[0]?.total || 0;
+            if (amount > maxAmount) maxAmount = amount;
+            chartData.push({
+                round: `R${r}`,
+                amount,
+                heightPercentage: 0
+            });
+        }
+
+        // Apply height percentage
+        chartData.forEach(item => {
+            item.heightPercentage = maxAmount > 0 ? Math.round((item.amount / maxAmount) * 100) : 0;
+        });
+
+        // 5. Member Compliance List
+        const membersData: ReportMemberItem[] = [];
+
+        for (const m of membersList) {
+            // Count total rounds this user has contributed in
+            const userPaidRoundsRes = await db
+                .select({ count: sql<number>`count(distinct ${contributions.round})::int` })
+                .from(contributions)
+                .where(
+                    and(
+                        eq(contributions.circleId, circle.id),
+                        eq(contributions.userId, m.userId),
+                        eq(contributions.reconciled, true)
+                    )
+                );
+            const paidRounds = userPaidRoundsRes[0]?.count || 0;
+
+            // Check current round status
+            const hasPaidCurrentRoundRes = await db
+                .select()
+                .from(contributions)
+                .where(
+                    and(
+                        eq(contributions.circleId, circle.id),
+                        eq(contributions.userId, m.userId),
+                        eq(contributions.round, String(currentRoundNum)),
+                        eq(contributions.reconciled, true)
+                    )
+                )
+                .limit(1);
+
+            const hasPaid = hasPaidCurrentRoundRes.length > 0;
+            let currentRoundStatus: 'paid' | 'pending' | 'overdue' = 'paid';
+
+            if (!hasPaid) {
+                // If not paid, check if past scheduled date
+                if (m.payoutDate && new Date() > new Date(m.payoutDate)) {
+                    currentRoundStatus = 'overdue';
+                } else {
+                    currentRoundStatus = 'pending';
+                }
+            }
+
+            const compliancePercentage = currentRoundNum > 0 
+                ? Math.min(100, Math.round((paidRounds / currentRoundNum) * 100)) 
+                : 100;
+
+            membersData.push({
+                userId: m.userId,
+                name: [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email.split('@')[0],
+                email: m.email,
+                imageUrl: m.imageUrl,
+                paidRounds,
+                totalRounds: currentRoundNum,
+                currentRoundStatus,
+                compliancePercentage,
+                rotationPosition: m.rotationPosition,
+                payoutDate: m.payoutDate ? m.payoutDate.toISOString() : null
+            });
+        }
+
+        return {
+            success: true,
+            data: {
+                projectedSavings,
+                avgComplianceRate,
+                health,
+                currency: circle.currency,
+                circleName: circle.name,
+                chartData,
+                membersData
+            }
+        };
+    } catch (error: any) {
+        console.error('Get Reports Stats Error:', error);
+        return { success: false, error: error.message || 'Failed to fetch reports stats' };
     }
 }

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, pgEnum, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, pgEnum, index, uniqueIndex, numeric, integer } from "drizzle-orm/pg-core";
 
 /**
  * Core Identity
@@ -96,6 +96,10 @@ export const circles = pgTable("circles", {
     lastActivityAt: timestamp("last_activity_at", {
         withTimezone: true,
     }),
+    contributionAmount: numeric("contribution_amount", { precision: 12, scale: 2 }).default("50000.00").notNull(),
+    payoutMethod: text("payout_method").default("manual").notNull(),
+    frequency: text("frequency").default("monthly").notNull(),
+    currentRound: integer("current_round").default(1).notNull(),
     createdAt: timestamp("created_at", {
         withTimezone: true,
     }).defaultNow().notNull(),
@@ -142,6 +146,8 @@ export const circleMembers = pgTable("circle_members", {
     createdAt: timestamp("created_at", {
         withTimezone: true,
     }).defaultNow().notNull(),
+    rotationPosition: integer("rotation_position"),
+    payoutDate: timestamp("payout_date", { withTimezone: true }),
     updatedAt: timestamp("updated_at", {
         withTimezone: true,
     })

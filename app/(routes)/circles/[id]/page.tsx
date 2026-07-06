@@ -23,6 +23,7 @@ import {
     getCircleDetailsAction,
     inviteCircleMemberAction,
     updateCircleSettingsAction,
+    updateCircleMemberPayoutAction,
     type CircleDetails,
 } from '@/lib/actions/circle';
 
@@ -98,22 +99,20 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                 />
                 <StatCard icon={Wallet} label="Currency" value={circle.currency} />
                 <StatCard
-                    icon={circle.visibility === 'invite_only' ? Mail : Lock}
-                    label="Visibility"
+                    icon={Clock}
+                    label="Payout Method"
                     value={
-                        <span className="text-sm">
-                            {circle.visibility === 'invite_only'
-                                ? 'Invite only'
-                                : 'Private'}
+                        <span className="text-sm capitalize font-semibold text-gray-700">
+                            {circle.payoutMethod === 'draw' ? 'Random Draw' : circle.payoutMethod.replace('_', ' ')}
                         </span>
                     }
                 />
                 <StatCard
                     icon={Calendar}
-                    label="Created"
+                    label="Contribution Target"
                     value={
-                        <span className="text-sm">
-                            {formatDate(circle.createdAt)}
+                        <span className="text-sm font-bold text-purple-700">
+                            {circle.currency === 'USD' ? '$' : '₦'}{parseFloat(circle.contributionAmount || '50000').toLocaleString()}
                         </span>
                     }
                 />
@@ -223,6 +222,28 @@ function MembersTab({
     const [role, setRole] = useState<'admin' | 'member'>('member');
     const [inviting, setInviting] = useState(false);
 
+    const handleDrawLots = async () => {
+        setInviting(true);
+        try {
+            const shufflable = [...members];
+            for (let i = shufflable.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shufflable[i], shufflable[j]] = [shufflable[j], shufflable[i]];
+            }
+            for (let idx = 0; idx < shufflable.length; idx++) {
+                await updateCircleMemberPayoutAction(circle.id, shufflable[idx].userId, {
+                    rotationPosition: idx + 1
+                });
+            }
+            toast.success('Random draw completed successfully!');
+            onRefresh();
+        } catch (err) {
+            toast.error('Failed to perform draw.');
+        } finally {
+            setInviting(false);
+        }
+    };
+
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email.trim()) return;
@@ -287,6 +308,15 @@ function MembersTab({
                     <h3 className="text-sm font-bold text-gray-900">
                         Members ({members.length})
                     </h3>
+                    {circle.payoutMethod === 'draw' && canManage && (
+                        <button
+                            onClick={handleDrawLots}
+                            disabled={inviting}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-purple-50 hover:bg-purple-100 px-3 py-1.5 text-xs font-bold text-purple-700 transition"
+                        >
+                            Shuffle & Draw Lots
+                        </button>
+                    )}
                 </div>
                 <ul className="divide-y divide-gray-50">
                     {members.map((m) => (
@@ -314,6 +344,77 @@ function MembersTab({
                                     {m.email}
                                 </p>
                             </div>
+
+                            {/* Render rotation schedule input / label */}
+                            {circle.payoutMethod === 'sequential' && (
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                    {canManage ? (
+                                        <>
+                                            <span className="text-[10px] text-gray-400 font-semibold uppercase">Pos:</span>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={m.rotationPosition || ''}
+                                                onChange={async (e) => {
+                                                    const val = e.target.value ? parseInt(e.target.value) : null;
+                                                    const res = await updateCircleMemberPayoutAction(circle.id, m.userId, { rotationPosition: val });
+                                                    if (res.success) {
+                                                        toast.success('Sequence position updated.');
+                                                        onRefresh();
+                                                    } else {
+                                                        toast.error(res.error || 'Failed to update position.');
+                                                    }
+                                                }}
+                                                className="w-12 text-center text-xs font-bold rounded-lg border border-gray-200 py-1 px-0.5 outline-none focus:border-purple-400 text-gray-700"
+                                            />
+                                        </>
+                                    ) : (
+                                        m.rotationPosition && (
+                                            <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100 font-semibold">
+                                                Round {m.rotationPosition}
+                                            </span>
+                                        )
+                                    )}
+                                </div>
+                            )}
+
+                            {circle.payoutMethod === 'scheduled' && (
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                    {canManage ? (
+                                        <>
+                                            <span className="text-[10px] text-gray-400 font-semibold uppercase">Date:</span>
+                                            <input
+                                                type="date"
+                                                value={m.payoutDate ? new Date(m.payoutDate).toISOString().substring(0, 10) : ''}
+                                                onChange={async (e) => {
+                                                    const val = e.target.value ? new Date(e.target.value) : null;
+                                                    const res = await updateCircleMemberPayoutAction(circle.id, m.userId, { payoutDate: val });
+                                                    if (res.success) {
+                                                        toast.success('Payout date updated.');
+                                                        onRefresh();
+                                                    } else {
+                                                        toast.error(res.error || 'Failed to update payout date.');
+                                                    }
+                                                }}
+                                                className="text-xs font-semibold rounded-lg border border-gray-200 py-1 px-1.5 outline-none focus:border-purple-400 text-gray-700"
+                                            />
+                                        </>
+                                    ) : (
+                                        m.payoutDate && (
+                                            <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+                                                Payout: {formatDate(m.payoutDate)}
+                                            </span>
+                                        )
+                                    )}
+                                </div>
+                            )}
+
+                            {circle.payoutMethod === 'draw' && m.rotationPosition && (
+                                <span className="text-xs text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100 font-bold shrink-0">
+                                    Draw Pos: {m.rotationPosition}
+                                </span>
+                            )}
+
                             <RoleBadge role={m.role} />
                         </li>
                     ))}
@@ -374,6 +475,10 @@ function SettingsTab({
     const [privacy, setPrivacy] = useState<'invite_only' | 'private'>(
         circle.visibility
     );
+    const [contributionAmount, setContributionAmount] = useState(Number(circle.contributionAmount || 50000));
+    const [payoutMethod, setPayoutMethod] = useState(circle.payoutMethod || 'manual');
+    const [frequency, setFrequency] = useState(circle.frequency || 'monthly');
+    const [currentRound, setCurrentRound] = useState(circle.currentRound || 1);
     const [saving, setSaving] = useState(false);
 
     if (!canManage) {
@@ -400,6 +505,10 @@ function SettingsTab({
             slug,
             description,
             privacy,
+            contributionAmount,
+            payoutMethod,
+            frequency,
+            currentRound,
         });
         setSaving(false);
         if (res.success && res.data) {
@@ -473,6 +582,68 @@ function SettingsTab({
                     <option value="invite_only">Invite only</option>
                     <option value="private">Private</option>
                 </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="text-xs font-semibold text-gray-700">
+                        Contribution Amount ({circle.currency})
+                    </label>
+                    <input
+                        type="number"
+                        min="1"
+                        required
+                        value={contributionAmount}
+                        onChange={(e) => setContributionAmount(Number(e.target.value))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                    />
+                </div>
+
+                <div>
+                    <label className="text-xs font-semibold text-gray-700">
+                        Current Round
+                    </label>
+                    <input
+                        type="number"
+                        min="1"
+                        required
+                        value={currentRound}
+                        onChange={(e) => setCurrentRound(Number(e.target.value))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                    />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="text-xs font-semibold text-gray-700">
+                        Payout Method
+                    </label>
+                    <select
+                        value={payoutMethod}
+                        onChange={(e) => setPayoutMethod(e.target.value)}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                    >
+                        <option value="manual">Manual Select</option>
+                        <option value="sequential">Sequential Rotation</option>
+                        <option value="draw">Random Draw (Shuffled)</option>
+                        <option value="scheduled">Scheduled Dates</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="text-xs font-semibold text-gray-700">
+                        Frequency
+                    </label>
+                    <select
+                        value={frequency}
+                        onChange={(e) => setFrequency(e.target.value)}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+                    >
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
             </div>
 
             <div className="flex justify-end border-t border-gray-50 pt-5">

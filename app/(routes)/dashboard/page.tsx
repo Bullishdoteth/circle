@@ -9,6 +9,7 @@ import { Greetings } from '@/components/shared/greetings';
 import { RecentActivity } from '@/components/shared/recentActivity';
 import { SecurityCard } from '@/components/shared/securityCard';
 import { TopCircles } from '@/components/shared/topCircles';
+import { getDashboardStatsAction, type DashboardStats } from '@/lib/actions/contributions';
 
 interface DashboardCircle {
     id: string;
@@ -23,25 +24,37 @@ function DashboardContent() {
     const searchParams = useSearchParams();
     const [circles, setCircles] = useState<DashboardCircle[]>([]);
     const [activeCircle, setActiveCircle] = useState<DashboardCircle | null>(null);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
 
     const circleSlug = searchParams?.get('circle') ?? null;
 
     useEffect(() => {
-        const fetchCircles = async () => {
+        const fetchCirclesAndStats = async () => {
+            setLoading(true);
             const res = await getMyCirclesAction();
+            let currentSlug = circleSlug;
+
             if (res.success && res.data) {
                 setCircles(res.data);
                 if (circleSlug) {
                     const match = res.data.find(c => c.slug === circleSlug);
-                    if (match) setActiveCircle(match);
+                    if (match) {
+                        setActiveCircle(match);
+                    }
                 } else if (res.data.length > 0) {
                     setActiveCircle(res.data[0]);
+                    currentSlug = res.data[0].slug;
                 }
+            }
+
+            const statsRes = await getDashboardStatsAction(currentSlug);
+            if (statsRes.success && statsRes.data) {
+                setStats(statsRes.data);
             }
             setLoading(false);
         };
-        fetchCircles();
+        fetchCirclesAndStats();
     }, [circleSlug]);
 
     if (loading) {
@@ -87,10 +100,10 @@ function DashboardContent() {
                     {/* Top Section - Balance and Contributions */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                         <div className="lg:col-span-2">
-                            <BalanceCard activeCircle={activeCircle} totalCirclesCount={circles.length} />
+                            <BalanceCard activeCircle={activeCircle} totalCirclesCount={circles.length} totalBalance={stats?.totalBalance ?? 0} />
                         </div>
                         <div>
-                            <ContributionsCard activeCircle={activeCircle} />
+                            <ContributionsCard activeCircle={activeCircle} contributionsThisMonth={stats?.contributionsThisMonth ?? 0} complianceRate={stats?.complianceRate ?? 100} />
                         </div>
                     </div>
 

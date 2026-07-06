@@ -6,6 +6,7 @@ import { db } from '@/lib/db/db';
 import { payouts, circles, users, circleMembers } from '@/lib/db/schema';
 import { nombaRequest } from '@/lib/nomba';
 import type { ActionResponse } from './circle';
+import { sendPayoutProcessedEmail } from '@/lib/mail';
 
 export interface PayoutRecord {
     id: string;
@@ -210,6 +211,33 @@ export async function createPayoutAction(input: {
                 round: input.round || null,
             })
             .returning();
+
+        // Send payout email notification
+        try {
+            const [targetUser] = await db
+                .select({ email: users.email })
+                .from(users)
+                .where(eq(users.id, input.userId))
+                .limit(1);
+
+            const [circle] = await db
+                .select({ name: circles.name })
+                .from(circles)
+                .where(eq(circles.id, input.circleId))
+                .limit(1);
+
+            if (targetUser && circle && status === 'success') {
+                await sendPayoutProcessedEmail({
+                    to: targetUser.email,
+                    amount: input.amount,
+                    circleName: circle.name,
+                    bankName: input.bankName,
+                    accountNumber: input.accountNumber,
+                });
+            }
+        } catch (emailErr) {
+            console.error('Failed to send payout email notification:', emailErr);
+        }
 
         return { success: true, data: insertedPayout as PayoutRecord };
     } catch (error: any) {
