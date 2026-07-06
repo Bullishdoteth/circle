@@ -33,8 +33,8 @@ export const CircleInviteEmail = ({
 
   return (
     <Html>
-      <Head />
       <Tailwind>
+        <Head />
         <Body className="mx-auto my-auto bg-slate-50 px-2 font-sans">
           <Preview>{previewText}</Preview>
           <Container className="mx-auto my-[40px] max-w-[465px] rounded-xl border border-slate-200 bg-white p-[32px] shadow-sm">
