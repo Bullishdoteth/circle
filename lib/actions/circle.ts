@@ -809,7 +809,7 @@ export async function getInvitationDetailsAction(
 }
 
 export async function acceptInvitationAction(
-    token: string
+    tokenOrId: string
 ): Promise<ActionResponse<{ slug: string }>> {
     try {
         const { userId } = await auth();
@@ -834,7 +834,12 @@ export async function acceptInvitationAction(
         const [invitation] = await db
             .select()
             .from(invitations)
-            .where(eq(invitations.token, token))
+            .where(
+                or(
+                    eq(invitations.token, tokenOrId),
+                    eq(invitations.id, tokenOrId)
+                )
+            )
             .limit(1);
 
         if (!invitation) {
@@ -966,7 +971,7 @@ export async function acceptInvitationAction(
 }
 
 export async function declineInvitationAction(
-    token: string
+    tokenOrId: string
 ): Promise<ActionResponse<void>> {
     try {
         const { userId } = await auth();
@@ -978,7 +983,12 @@ export async function declineInvitationAction(
         const [invitation] = await db
             .select()
             .from(invitations)
-            .where(eq(invitations.token, token))
+            .where(
+                or(
+                    eq(invitations.token, tokenOrId),
+                    eq(invitations.id, tokenOrId)
+                )
+            )
             .limit(1);
 
         if (!invitation) {
