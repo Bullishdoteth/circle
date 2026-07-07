@@ -6,7 +6,7 @@ import { and, eq, isNull, sql, or, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
 import { circles, users, circleMembers, invitations, virtualAccounts } from '@/lib/db/schema';
 import { sendCircleInviteEmail } from '@/lib/mail';
-import { nombaRequest } from '@/lib/nomba';
+import { nombaRequest, getNombaConfig } from '@/lib/nomba';
 import { createNotificationAction } from '@/lib/actions/notifications';
 
 export interface CircleRecord {
@@ -145,7 +145,8 @@ export async function createCircleAction(
 
         try {
             console.log(`[Nomba] Provisioning virtual account for circle: ${insertedCircle.id}`);
-            const vaData = await nombaRequest<any>('POST', '/v1/accounts/virtual', {
+            const { subAccountId } = getNombaConfig();
+            const vaData = await nombaRequest<any>('POST', `/v1/accounts/virtual/${subAccountId}`, {
                 body: {
                     accountRef,
                     accountName,

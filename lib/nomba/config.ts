@@ -17,6 +17,7 @@ export interface NombaConfig {
     clientId: string;
     clientSecret: string;
     accountId: string;
+    subAccountId: string;
 }
 
 function requireEnv(name: string): string {
@@ -70,11 +71,19 @@ export function getNombaConfig(): NombaConfig {
         );
     }
 
+    const subAccountId = process.env.NOMBA_SUB_ACCOUNT_ID || '';
+    if (!subAccountId) {
+        throw new Error(
+            "[nomba] Missing required environment variable: NOMBA_SUB_ACCOUNT_ID. Add it to .env.local."
+        );
+    }
+
     return {
         environment,
         baseUrl,
         clientId,
         clientSecret,
         accountId,
+        subAccountId,
     };
 }
