@@ -130,14 +130,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             label: 'Reports', 
             href: activeCircleSlug && activeCircleSlug !== 'all' ? `/reports?circle=${activeCircleSlug}` : '/reports' 
         },
-        { 
-            icon: Settings, 
-            label: 'Circle Settings', 
-            href: activeCircleSlug && activeCircleSlug !== 'all' ? `/circles/${activeCircleSlug}?tab=settings` : '/circles' 
-        },
         {
             icon: Sliders,
-            label: 'App Settings',
+            label: 'Settings',
             href: '/settings'
         }
     ];

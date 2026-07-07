@@ -103,10 +103,10 @@ async function PayoutsContent({ searchParams }: PageProps) {
         {/* Top Split: Next Payout Recipient Card & Payout Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Next Recipient Card */}
-          <div className="lg:col-span-2 rounded-3xl border border-purple-100 bg-gradient-to-tr from-purple-500 to-indigo-600 p-6 md:p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+          <div className="lg:col-span-2 rounded-3xl border border-purple-100 bg-gradient-to-tr from-purple-500 to-purple-800 p-6 md:p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[220px]">
             {/* Visual background globes */}
             <div className="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-white/10 blur-xl pointer-events-none" />
-            <div className="absolute -right-2 -top-12 w-32 h-32 rounded-full bg-purple-400/25 blur-lg pointer-events-none" />
+            <div className="absolute -right-2 -top-12 w-32 h-32 rounded-full bg-white/10 blur-lg pointer-events-none" />
             
             <div className="flex justify-between items-start">
               <div>
