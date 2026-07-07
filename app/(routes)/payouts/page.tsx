@@ -184,12 +184,13 @@ async function PayoutsContent({ searchParams }: PageProps) {
                   <th className="px-6 py-3.5">Payout Amount</th>
                   <th className="px-6 py-3.5">Destination Account</th>
                   <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
                 {payoutsList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400 text-xs">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400 text-xs">
                       No payouts processed yet for this circle.
                     </td>
                   </tr>
@@ -221,6 +222,14 @@ async function PayoutsContent({ searchParams }: PageProps) {
                             <AlertCircle size={12} /> Failed
                           </span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={`/payout/${row.id}`}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-gray-50 hover:bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition"
+                        >
+                          View Details
+                        </Link>
                       </td>
                     </tr>
                   ))
