@@ -179,7 +179,7 @@ async function handleEvent(event: NombaWebhookPayload): Promise<void> {
             await db.insert(contributions).values({
                 circleId: vaRecord.circleId,
                 userId: null, // Initially unmatched
-                amount: String(amount),
+                amount: String(parseFloat(String(amount)) / 100),
                 status: 'success',
                 reference: transactionId,
                 senderName,
