@@ -3,24 +3,24 @@ import Link from "next/link";
 import { FaLinkedinIn, FaInstagram, FaTwitter, FaApple, FaGooglePlay } from "react-icons/fa";
 
 const productLinks = [
-    { label: "Features", href: "/features" },
-    { label: "How it Works", href: "/how-it-works" },
-    { label: "Pricing", href: "/pricing" },
-    { label: "Security", href: "/security" },
+    { label: "Features", href: "/#features" },
+    { label: "How it Works", href: "/#how-it-works" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "Security", href: "#/security" },
 ];
 
 const companyLinks = [
-    { label: "About", href: "/about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Careers", href: "/careers" },
-    { label: "Contact", href: "/contact" },
+    { label: "About", href: "/#about" },
+    { label: "Blog", href: "/#blog" },
+    { label: "Careers", href: "/#careers" },
+    { label: "Contact", href: "/#contact" },
 ];
 
 const resourceLinks = [
-    { label: "Help Center", href: "/help" },
-    { label: "Community", href: "/community" },
-    { label: "Status", href: "/status" },
-    { label: "Developers", href: "/developers" },
+    { label: "Help Center", href: "/#help" },
+    { label: "Community", href: "/#community" },
+    { label: "Status", href: "/#status" },
+    { label: "Developers", href: "/docs" },
 ];
 
 const legalLinks = [
