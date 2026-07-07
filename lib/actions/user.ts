@@ -71,3 +71,74 @@ export async function updateUserPayoutProfileAction(input: UserPayoutProfile): P
         return { success: false, error: error.message || 'Failed to update payout profile.' };
     }
 }
+
+export interface UserProfile {
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+    email: string;
+    phoneNumber: string | null;
+    address: string | null;
+}
+
+/**
+ * Fetch full profile details of the current logged-in user
+ */
+export async function getUserProfileAction(): Promise<ActionResponse<UserProfile>> {
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const [user] = await db
+            .select({
+                firstName: users.firstName,
+                lastName: users.lastName,
+                username: users.username,
+                email: users.email,
+                phoneNumber: users.phoneNumber,
+                address: users.address,
+            })
+            .from(users)
+            .where(eq(users.clerkId, clerkId))
+            .limit(1);
+
+        if (!user) {
+            return { success: false, error: 'User record not found.' };
+        }
+
+        return { success: true, data: user };
+    } catch (error: any) {
+        console.error('Get User Profile Error:', error);
+        return { success: false, error: error.message || 'Failed to fetch user profile.' };
+    }
+}
+
+/**
+ * Update full profile details of the current logged-in user
+ */
+export async function updateUserProfileAction(input: Partial<UserProfile>): Promise<ActionResponse<void>> {
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        await db
+            .update(users)
+            .set({
+                firstName: input.firstName,
+                lastName: input.lastName,
+                username: input.username,
+                phoneNumber: input.phoneNumber,
+                address: input.address,
+            })
+            .where(eq(users.clerkId, clerkId));
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Update User Profile Error:', error);
+        return { success: false, error: error.message || 'Failed to update profile.' };
+    }
+}
