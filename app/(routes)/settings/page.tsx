@@ -267,7 +267,7 @@ export default function SettingsPage() {
                         <div>
                             <h2 className="text-base font-bold text-gray-900 font-space-grotesk flex items-center gap-2">
                                 <SettingsIcon className="text-purple-600 w-5 h-5 animate-spin-slow" />
-                                App Settings
+                                Settings
                             </h2>
                             <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-1">Circle Account Control</p>
                         </div>
