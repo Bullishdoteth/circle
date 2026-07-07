@@ -66,7 +66,7 @@ function DashboardContent() {
     }
 
     return (
-        <div className="bg-gray-50 min-h-screen">
+        <div className="bg-white min-h-screen">
             <div className="flex-1 overflow-auto">
                 <div className="p-4 md:p-8">
                     {/* Header - Greeting */}
