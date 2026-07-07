@@ -446,14 +446,14 @@ Create a `.env.local` file in your root folder.
 | Key | Purpose | Required | Example Value |
 | :--- | :--- | :---: | :--- |
 | `DATABASE_URL` | Neon database connection link | **Yes** | `postgresql://user:pwd@host/db?ssl=true` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk client credentials | **Yes** | `pk_test_Y2hhbXBpb...` |
-| `CLERK_SECRET_KEY` | Clerk server private credentials | **Yes** | `sk_test_JQN0p84e...` |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk Svix webhook signer validation key | **Yes** | `whsec_8nbUfHV2...` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk client credentials | **Yes** | `pk_test_Y*****...` |
+| `CLERK_SECRET_KEY` | Clerk server private credentials | **Yes** | ******`sk_test_JQ******...` |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk Svix webhook signer validation key | **Yes** | `whsec_************...` |
 | `NOMBA_ENV` | Nomba workspace selector | No | `sandbox` \| `production` |
 | `NOMBA_CLIENT_ID` | Nomba developer client ID | **Yes** | `e******-***...` |
 | `NOMBA_PRIVATE_KEY` | Nomba client secret key | **Yes** | `8/********...` (or `NOMBA_CLIENT_SECRET`) |
 | `NOMBA_PARENT_ACCOUNT_ID` | Nomba primary account ID | **Yes** | `******-888e...` (or `NOMBA_ACCOUNT_ID`) |
-| `NOMBA_SUB_ACCOUNT_ID` | Sub-account ID for virtual account routing | **Yes** | `5b4c8044-0a41...` |
+| `NOMBA_SUB_ACCOUNT_ID` | Sub-account ID for virtual account routing | **Yes** | `5b4c8*****...` |
 | `NOMBA_WEBHOOK_SIGNATURE_KEY` | Nomba Webhook HMAC validation key | **Yes** | `*********` |
 | `RESEND_API_KEY` | Transactional email dispatcher key | **Yes** | `re_*******_...` |
 | `EMAIL_FROM` | Dispatcher email header | No | `Circles <invitations@newnaija.ng>` |
@@ -585,9 +585,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 👥 Authors
 
-*   **Mcbright Nnam** - Lead Architect / Developer - [GitHub](https://github.com/mcbrightnnam)
-*   **Ghost Trader** - Frontend Engineer - [GitHub](https://github.com/ghosttrader)
-*   **Micheal Agulonye** - Backend Integration - [GitHub](https://github.com/michealagulonye)
+
+*   **Micheal Agulonye** - Full Stack Developer - [GitHub](https://github.com/bullishdoteth)
 
 ---
 
