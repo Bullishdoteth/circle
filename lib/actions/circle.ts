@@ -21,6 +21,10 @@ export interface CircleRecord {
     status: 'active' | 'archived' | 'suspended' | 'deleted';
     createdBy: string;
     lastActivityAt: string | Date | null;
+    contributionAmount: string;
+    payoutMethod: string;
+    frequency: string;
+    currentRound: number;
     createdAt: string | Date;
     updatedAt: string | Date;
     deletedAt: string | Date | null;

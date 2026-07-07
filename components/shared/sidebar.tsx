@@ -52,7 +52,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     slug: 'all',
                     imageUrl: null,
                     memberCount: res.data.reduce((acc: number, c: SidebarCircle) => acc + (c.memberCount || 0), 0),
-                    userRole: 'admin', // Allow viewing all tabs in All Circles overview mode
+                    userRole: 'admin' as const, // Allow viewing all tabs in All Circles overview mode
                 };
 
                 if (currentCircleSlug && currentCircleSlug !== 'all') {
