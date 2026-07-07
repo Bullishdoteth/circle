@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
 import { payouts, circles, users, circleMembers } from '@/lib/db/schema';
-import { nombaRequest } from '@/lib/nomba';
+import { nombaRequest, getNombaConfig } from '@/lib/nomba';
 import type { ActionResponse } from './circle';
 import { sendPayoutProcessedEmail } from '@/lib/mail';
 import { createNotificationAction } from '@/lib/actions/notifications';
@@ -168,7 +168,8 @@ export async function createPayoutAction(input: {
 
         try {
             console.log(`[Nomba] Initiating bank transfer of NGN ${input.amount} to ${input.accountNumber} (${input.bankCode})`);
-            const transferResult = await nombaRequest<any>('POST', '/v2/transfers/bank', {
+            const { subAccountId } = getNombaConfig();
+            const transferResult = await nombaRequest<any>('POST', `/v2/transfers/bank/${subAccountId}`, {
                 body: {
                     amount: parseFloat(input.amount),
                     accountNumber: input.accountNumber,
