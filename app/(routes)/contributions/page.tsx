@@ -13,6 +13,8 @@ import {
 import { getCircleRoleAction, getMyCirclesAction, getCircleDetailsAction } from '@/lib/actions/circle';
 import { getCircleContributionsAction, getUnreconciledContributionsAction } from '@/lib/actions/contributions';
 import { ReconcileContributionButton } from '@/components/circles/reconcileContributionButton';
+import { SyncInflowsButton } from '@/components/circles/syncInflowsButton';
+import { ContributionSettingsButton } from '@/components/circles/contributionSettingsButton';
 
 interface PageProps {
   searchParams: Promise<{
@@ -64,7 +66,7 @@ async function ContributionsContent({ searchParams }: PageProps) {
 
   // Stats calculation
   const totalContributed = reconciledList.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
-  const expectedPerMember = 50000;
+  const expectedPerMember = parseFloat(circleDetails?.circle.contributionAmount || '50000');
   const totalExpected = members.length * expectedPerMember;
   const complianceRate = members.length > 0 
     ? Math.round((reconciledList.length / members.length) * 100) 
@@ -91,6 +93,9 @@ async function ContributionsContent({ searchParams }: PageProps) {
             >
               <ArrowLeft size={14} /> Back to Dashboard
             </Link>
+            {isManager && circleDetails && (
+              <ContributionSettingsButton circle={circleDetails.circle} />
+            )}
             <button className="inline-flex h-10 items-center justify-center rounded-xl bg-purple-600 px-4 text-xs font-semibold text-white shadow-[0_4px_12px_rgba(147,51,234,0.15)] transition hover:bg-purple-700">
               Record Contribution
             </button>
@@ -121,7 +126,7 @@ async function ContributionsContent({ searchParams }: PageProps) {
               {currency === 'NGN' ? `₦${totalExpected.toLocaleString()}` : `$${totalExpected.toLocaleString()}`}
             </p>
             <p className="text-[11px] text-gray-500 mt-1 font-medium">
-              {members.length} members (₦50,000 each)
+              {members.length} members ({currency === 'NGN' ? '₦' : '$'}{expectedPerMember.toLocaleString()} each)
             </p>
           </div>
 
@@ -143,7 +148,7 @@ async function ContributionsContent({ searchParams }: PageProps) {
             </div>
             <p className="text-2xl font-bold text-gray-900 mt-2">15th of Month</p>
             <p className="text-[11px] text-amber-600 mt-1 font-medium font-space-grotesk">
-              Monthly rotation cycle
+              {circleDetails?.circle.frequency ? circleDetails.circle.frequency.charAt(0).toUpperCase() + circleDetails.circle.frequency.slice(1) : 'Monthly'} rotation cycle
             </p>
           </div>
         </div>
@@ -212,9 +217,12 @@ async function ContributionsContent({ searchParams }: PageProps) {
                 <AlertCircle className="text-purple-600 animate-pulse" size={16} />
                 Unreconciled Bank Deposits ({unreconciledList.length})
               </h3>
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-600/10">
-                Action Required
-              </span>
+              <div className="flex items-center gap-2">
+                <SyncInflowsButton circleSlug={targetSlug} />
+                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-600/10">
+                  Action Required
+                </span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">

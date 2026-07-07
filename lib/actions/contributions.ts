@@ -3,10 +3,11 @@
 import { auth } from '@clerk/nextjs/server';
 import { and, eq, isNull, sql, desc, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
-import { contributions, circles, users, circleMembers, payouts } from '@/lib/db/schema';
+import { contributions, circles, users, circleMembers, payouts, virtualAccounts } from '@/lib/db/schema';
 import type { ActionResponse } from './circle';
 import { sendContributionReconciledEmail } from '@/lib/mail';
 import { createNotificationAction } from '@/lib/actions/notifications';
+import { nombaRequest, getNombaConfig } from '@/lib/nomba';
 
 export interface ContributionRecord {
     id: string;
@@ -854,5 +855,137 @@ export async function getReportsStatsAction(
     } catch (error: any) {
         console.error('Get Reports Stats Error:', error);
         return { success: false, error: error.message || 'Failed to fetch reports stats' };
+    }
+}
+
+/**
+ * Manually synchronize virtual account inflows from Nomba transactions API
+ */
+export async function syncCircleInflowsAction(
+    circleSlug: string
+): Promise<ActionResponse<{ syncedCount: number }>> {
+    try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const [circle] = await db
+            .select()
+            .from(circles)
+            .where(and(eq(circles.slug, circleSlug), isNull(circles.deletedAt)))
+            .limit(1);
+
+        if (!circle) {
+            return { success: false, error: 'Circle not found' };
+        }
+
+        const [member] = await db
+            .select()
+            .from(circleMembers)
+            .innerJoin(users, eq(users.id, circleMembers.userId))
+            .where(
+                and(
+                    eq(circleMembers.circleId, circle.id),
+                    eq(users.clerkId, clerkId),
+                    eq(circleMembers.status, 'active')
+                )
+            )
+            .limit(1);
+
+        if (!member || (member.circle_members.role !== 'owner' && member.circle_members.role !== 'admin' && member.circle_members.role !== 'treasurer')) {
+            return { success: false, error: 'Only owners, admins, or treasurers can sync inflows.' };
+        }
+
+        const { subAccountId } = getNombaConfig();
+        if (!subAccountId) {
+            return { success: false, error: 'NOMBA_SUB_ACCOUNT_ID is not configured.' };
+        }
+
+        console.log(`[Sync Inflows] Fetching transactions for sub-account: ${subAccountId}`);
+        const txData = await nombaRequest<any>(
+            'GET',
+            `/v1/transactions/accounts/${subAccountId}`,
+            {
+                query: {
+                    limit: 100
+                }
+            }
+        );
+
+        const results = txData?.results || [];
+        console.log(`[Sync Inflows] Found ${results.length} transactions from Nomba`);
+
+        const [vaRecord] = await db
+            .select()
+            .from(virtualAccounts)
+            .where(eq(virtualAccounts.circleId, circle.id))
+            .limit(1);
+
+        if (!vaRecord) {
+            return { success: false, error: 'No virtual account found for this circle in database.' };
+        }
+
+        let syncedCount = 0;
+
+        for (const tx of results) {
+            const isSuccess = String(tx.status).toUpperCase() === 'SUCCESS';
+            const isVirtualAccountDeposit = 
+                String(tx.type).toLowerCase() === 'vact_transfer' || 
+                String(tx.type).toLowerCase() === 'deposit';
+
+            if (!isSuccess || !isVirtualAccountDeposit) {
+                continue;
+            }
+
+            const txAccountRef = tx.virtualAccountReference || tx.accountRef || '';
+            const txAccountNumber = tx.recipientAccountNumber || tx.accountNumber || '';
+
+            const isRefMatch = txAccountRef && txAccountRef === vaRecord.accountRef;
+            const isNumberMatch = txAccountNumber && txAccountNumber === vaRecord.bankAccountNumber;
+
+            if (!isRefMatch && !isNumberMatch) {
+                continue;
+            }
+
+            const transactionId = tx.id || tx.transactionId || tx.sessionId;
+            if (!transactionId) continue;
+
+            const [existing] = await db
+                .select()
+                .from(contributions)
+                .where(eq(contributions.reference, transactionId))
+                .limit(1);
+
+            if (existing) {
+                continue;
+            }
+
+            const amount = String(tx.amount || '0.00');
+            const senderName = tx.senderName || tx.ktaSenderName || null;
+            const senderBank = tx.bankName || tx.ktaSenderBankCode || null;
+            const senderAccountNumber = tx.accountNumber || tx.ktaSenderAccountNumber || null;
+
+            await db.insert(contributions).values({
+                circleId: vaRecord.circleId,
+                userId: null,
+                amount,
+                status: 'success',
+                reference: transactionId,
+                senderName,
+                senderBank,
+                senderAccountNumber,
+                reconciled: false,
+                rawPayload: JSON.stringify(tx),
+            });
+
+            syncedCount++;
+        }
+
+        console.log(`[Sync Inflows] Synced ${syncedCount} new transactions`);
+        return { success: true, data: { syncedCount } };
+    } catch (error: any) {
+        console.error('Sync Circle Inflows Action Error:', error);
+        return { success: false, error: error.message || 'An error occurred during synchronization.' };
     }
 }
