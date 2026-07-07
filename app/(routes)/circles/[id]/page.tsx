@@ -131,18 +131,20 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                             <span className="text-[10px] text-gray-400 font-semibold block uppercase">Bank Name</span>
-                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount.bankName}</span>
+                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount?.bankName || 'Nomba MFB'}</span>
                         </div>
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                             <span className="text-[10px] text-gray-400 font-semibold block uppercase">Account Number</span>
                             <div className="flex items-center justify-between mt-1">
-                                <span className="text-xs font-mono font-bold text-purple-700">{details.virtualAccount.bankAccountNumber}</span>
+                                <span className="text-xs font-mono font-bold text-purple-700">{details.virtualAccount?.bankAccountNumber || '—'}</span>
                                 <button 
                                     onClick={() => {
-                                        navigator.clipboard.writeText(details.virtualAccount.bankAccountNumber);
-                                        toast.success('Account number copied to clipboard!');
+                                        if (details.virtualAccount?.bankAccountNumber) {
+                                            navigator.clipboard.writeText(details.virtualAccount.bankAccountNumber);
+                                            toast.success('Account number copied to clipboard!');
+                                        }
                                     }}
-                                    className="text-[10px] text-purple-600 hover:text-purple-800 font-semibold"
+                                    className="text-[10px] text-purple-600 hover:text-purple-800 font-semibold cursor-pointer"
                                 >
                                     Copy
                                 </button>
@@ -150,7 +152,7 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                         </div>
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                             <span className="text-[10px] text-gray-400 font-semibold block uppercase">Account Name</span>
-                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount.bankAccountName}</span>
+                            <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount?.bankAccountName || 'Circle Account'}</span>
                         </div>
                     </div>
                 </div>
