@@ -254,3 +254,32 @@ export async function createPayoutAction(input: {
         return { success: false, error: error.message || 'An unexpected error occurred while processing payout.' };
     }
 }
+
+/**
+ * Resolve bank account name using Nomba API
+ */
+export async function resolveBankAccountAction(input: {
+    accountNumber: string;
+    bankCode: string;
+}): Promise<ActionResponse<{ accountName: string }>> {
+    try {
+        console.log(`[Nomba] Resolving account number ${input.accountNumber} for bank code ${input.bankCode}`);
+        const result = await nombaRequest<any>('POST', '/v1/transfers/bank/lookup', {
+            body: {
+                accountNumber: input.accountNumber,
+                bankCode: input.bankCode,
+            }
+        });
+
+        console.log('[Nomba] Resolve response:', result);
+        const accountName = result?.accountName || result?.account_name || '';
+        if (!accountName) {
+            return { success: false, error: 'Could not resolve account name.' };
+        }
+
+        return { success: true, data: { accountName } };
+    } catch (error: any) {
+        console.error('Resolve Bank Account Error:', error);
+        return { success: false, error: error.message || 'Failed to resolve bank account details.' };
+    }
+}
