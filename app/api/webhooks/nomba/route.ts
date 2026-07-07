@@ -2,10 +2,11 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { db } from '@/lib/db/db';
-import { eq } from 'drizzle-orm';
-import { virtualAccounts, contributions, payouts } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
+import { virtualAccounts, contributions, payouts, circleMembers, circles } from '@/lib/db/schema';
 import { verifyNombaWebhook } from '@/lib/nomba/webhook';
 import type { NombaWebhookPayload } from '@/lib/nomba/types';
+import { createNotificationAction } from '@/lib/actions/notifications';
 
 // node:crypto (HMAC) requires the Node.js runtime, not edge.
 export const runtime = 'nodejs';
@@ -188,6 +189,43 @@ async function handleEvent(event: NombaWebhookPayload): Promise<void> {
                 rawPayload: JSON.stringify(event),
             });
             console.log('[Nomba Webhook] Unreconciled contribution recorded successfully.');
+
+            // Notify all active managers of this circle about the new deposit
+            try {
+                const managers = await db
+                    .select({ userId: circleMembers.userId })
+                    .from(circleMembers)
+                    .where(
+                        and(
+                            eq(circleMembers.circleId, vaRecord.circleId),
+                            eq(circleMembers.status, 'active'),
+                            inArray(circleMembers.role, ['owner', 'admin', 'treasurer'])
+                        )
+                    );
+
+                const [circle] = await db
+                    .select({ name: circles.name })
+                    .from(circles)
+                    .where(eq(circles.id, vaRecord.circleId))
+                    .limit(1);
+
+                const amountFormatted = parseFloat(String(amount)).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+
+                for (const manager of managers) {
+                    await createNotificationAction({
+                        userId: manager.userId,
+                        circleId: vaRecord.circleId,
+                        title: 'New Deposit Received',
+                        message: `A deposit of ₦${amountFormatted} from ${senderName || 'Unknown Sender'} has been received for "${circle?.name || 'your circle'}". Please reconcile this deposit.`,
+                        type: 'transaction_incoming',
+                    });
+                }
+            } catch (notifErr) {
+                console.error('[Nomba Webhook] Failed to send incoming deposit notifications:', notifErr);
+            }
             break;
         }
 
@@ -220,6 +258,33 @@ async function handleEvent(event: NombaWebhookPayload): Promise<void> {
                     })
                     .where(eq(payouts.reference, payoutRef));
                 console.log(`[Nomba Webhook] Updated payout ${payoutRef} status to: ${newStatus}`);
+
+                // Notify recipient of final payout status
+                try {
+                    const [payoutRecord] = await db
+                        .select()
+                        .from(payouts)
+                        .where(eq(payouts.reference, payoutRef))
+                        .limit(1);
+
+                    if (payoutRecord && payoutRecord.userId) {
+                        const amountFormatted = parseFloat(payoutRecord.amount).toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        });
+                        await createNotificationAction({
+                            userId: payoutRecord.userId,
+                            circleId: payoutRecord.circleId,
+                            title: event.event_type === 'payout_success' ? 'Payout Disbursed' : 'Payout Failed',
+                            message: event.event_type === 'payout_success'
+                                ? `Your payout of ₦${amountFormatted} for ${payoutRecord.round} has been successfully disbursed to your personal bank account.`
+                                : `The payout of ₦${amountFormatted} for ${payoutRecord.round} failed to process.`,
+                            type: event.event_type === 'payout_success' ? 'payout_success' : 'payout_failed',
+                        });
+                    }
+                } catch (notifErr) {
+                    console.error('[Nomba Webhook] Failed to send payout status notification:', notifErr);
+                }
             }
             break;
         }
@@ -235,6 +300,31 @@ async function handleEvent(event: NombaWebhookPayload): Promise<void> {
                     })
                     .where(eq(payouts.reference, payoutRef));
                 console.log(`[Nomba Webhook] Updated payout ${payoutRef} status to: refunded`);
+
+                // Notify recipient of refund status
+                try {
+                    const [payoutRecord] = await db
+                        .select()
+                        .from(payouts)
+                        .where(eq(payouts.reference, payoutRef))
+                        .limit(1);
+
+                    if (payoutRecord && payoutRecord.userId) {
+                        const amountFormatted = parseFloat(payoutRecord.amount).toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        });
+                        await createNotificationAction({
+                            userId: payoutRecord.userId,
+                            circleId: payoutRecord.circleId,
+                            title: 'Payout Refunded',
+                            message: `The payout of ₦${amountFormatted} for ${payoutRecord.round} has been returned and refunded back to the circle's wallet.`,
+                            type: 'payout_refunded',
+                        });
+                    }
+                } catch (notifErr) {
+                    console.error('[Nomba Webhook] Failed to send payout refund notification:', notifErr);
+                }
             }
             break;
         }
