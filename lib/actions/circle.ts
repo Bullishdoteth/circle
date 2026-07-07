@@ -2,7 +2,7 @@
 
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
-import { and, eq, isNull, sql, or } from 'drizzle-orm';
+import { and, eq, isNull, sql, or, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
 import { circles, users, circleMembers, invitations, virtualAccounts } from '@/lib/db/schema';
 import { sendCircleInviteEmail } from '@/lib/mail';
@@ -217,6 +217,19 @@ export async function createCircleAction(
             })).catch((err) => {
                 console.error('Failed to send some onboarding invitation emails:', err);
             });
+        }
+
+        // Notify owner of successful circle creation
+        try {
+            await createNotificationAction({
+                userId: dbUser.id,
+                circleId: insertedCircle.id,
+                title: 'Circle Created',
+                message: `Your savings circle "${insertedCircle.name}" has been created. A Wema Bank virtual account (${bankAccountNumber}) was provisioned.`,
+                type: 'circle_create',
+            });
+        } catch (notifErr) {
+            console.error('Failed to send circle creation notification:', notifErr);
         }
 
         return {
@@ -739,6 +752,31 @@ export async function updateCircleSettingsAction(
             .where(eq(circles.id, circleId))
             .returning();
 
+        // Notify all active members of the settings update
+        try {
+            const members = await db
+                .select({ userId: circleMembers.userId })
+                .from(circleMembers)
+                .where(
+                    and(
+                        eq(circleMembers.circleId, circleId),
+                        eq(circleMembers.status, 'active')
+                    )
+                );
+
+            for (const m of members) {
+                await createNotificationAction({
+                    userId: m.userId,
+                    circleId,
+                    title: 'Circle Settings Updated',
+                    message: `The configuration settings for circle "${updatedCircle.name}" have been updated by the manager.`,
+                    type: 'circle_update',
+                });
+            }
+        } catch (notifErr) {
+            console.error('Failed to send circle update notification:', notifErr);
+        }
+
         return {
             success: true,
             data: updatedCircle as CircleRecord,
@@ -960,13 +998,42 @@ export async function acceptInvitationAction(
 
             if (circle) {
                 const memberName = [dbUser.firstName, dbUser.lastName].filter(Boolean).join(' ') || dbUser.email.split('@')[0];
-                await createNotificationAction({
-                    userId: invitation.invitedBy,
-                    circleId: invitation.circleId,
-                    title: 'Invitation Accepted',
-                    message: `${memberName} has accepted your invitation and joined the circle "${circle.name}".`,
-                    type: 'success',
-                });
+                
+                // Notify the specific inviter first
+                if (invitation.invitedBy) {
+                    await createNotificationAction({
+                        userId: invitation.invitedBy,
+                        circleId: invitation.circleId,
+                        title: 'Invitation Accepted',
+                        message: `${memberName} has accepted your invitation and joined the circle "${circle.name}".`,
+                        type: 'success',
+                    });
+                }
+
+                // Fetch all active managers of this circle to notify them
+                const managers = await db
+                    .select({ userId: circleMembers.userId })
+                    .from(circleMembers)
+                    .where(
+                        and(
+                            eq(circleMembers.circleId, invitation.circleId),
+                            eq(circleMembers.status, 'active'),
+                            inArray(circleMembers.role, ['owner', 'admin', 'treasurer'])
+                        )
+                    );
+
+                // Notify all managers (excluding the inviter since they are already notified)
+                for (const manager of managers) {
+                    if (manager.userId !== invitation.invitedBy) {
+                        await createNotificationAction({
+                            userId: manager.userId,
+                            circleId: invitation.circleId,
+                            title: 'New Member Joined',
+                            message: `${memberName} has accepted an invitation and joined "${circle.name}".`,
+                            type: 'member_join',
+                        });
+                    }
+                }
             }
         } catch (notifError) {
             console.error('Failed to create invitation accepted notification:', notifError);
@@ -1115,6 +1182,23 @@ export async function updateCircleMemberPayoutAction(
                 updatedAt: new Date(),
             })
             .where(and(eq(circleMembers.circleId, circleId), eq(circleMembers.userId, memberUserId)));
+
+        // Notify the member whose payout settings changed
+        try {
+            await createNotificationAction({
+                userId: memberUserId,
+                circleId,
+                title: 'Payout Schedule Updated',
+                message: `Your payout schedule has been updated by the circle manager.${
+                    updates.rotationPosition !== undefined ? ` Rotation Position: Slot ${updates.rotationPosition}.` : ''
+                }${
+                    updates.payoutDate ? ` Payout Date: ${new Date(updates.payoutDate).toLocaleDateString('en-US')}.` : ''
+                }`,
+                type: 'payout_update',
+            });
+        } catch (notifErr) {
+            console.error('Failed to send payout schedule update notification:', notifErr);
+        }
 
         return { success: true };
     } catch (error: any) {
