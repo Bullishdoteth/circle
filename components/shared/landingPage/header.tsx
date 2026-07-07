@@ -10,6 +10,7 @@ const navItems = [
     { label: 'How it works', href: '/#how-it-works' },
     { label: 'Features', href: '/#features' },
     { label: 'FAQs', href: '/#faq' },
+    { label: 'Docs', href: '/docs' },
 ]
 
 export default function Header() {
