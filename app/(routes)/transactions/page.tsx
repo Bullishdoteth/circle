@@ -99,7 +99,7 @@ function TransactionsContent() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 md:p-8">
+    <div className="bg-white min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

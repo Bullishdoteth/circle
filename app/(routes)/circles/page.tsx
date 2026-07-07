@@ -100,7 +100,7 @@ export default function CirclesPage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-white">
             <div className="p-4 md:p-8">
                 {/* Header */}
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -258,7 +258,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="bg-gray-50 min-h-screen p-4 md:p-8 flex items-start justify-center">
+        <div className="bg-white min-h-screen p-4 md:p-8 flex items-start justify-center">
             <div className="w-full max-w-4xl bg-white border border-gray-150 rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row min-h-[550px] animate-in fade-in zoom-in-95 duration-200">
                 
                 {/* Left Sidebar Navigation */}

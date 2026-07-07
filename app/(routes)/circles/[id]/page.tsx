@@ -157,7 +157,7 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                     </div>
                 </div>
             ) : (
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center text-xs text-gray-400">
+                <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center text-xs text-gray-400">
                     No virtual deposit account has been provisioned for this circle.
                 </div>
             )}

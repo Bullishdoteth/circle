@@ -32,7 +32,7 @@ export default function AppLayout({
     const closeSidebar = () => setSidebarOpen(false);
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-white">
             {/* Mobile Overlay */}
             {sidebarOpen && isMobile && (
                 <div

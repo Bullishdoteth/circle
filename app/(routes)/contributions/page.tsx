@@ -11,7 +11,7 @@ import {
   Clock 
 } from 'lucide-react';
 import { getCircleRoleAction, getMyCirclesAction, getCircleDetailsAction } from '@/lib/actions/circle';
-import { getCircleContributionsAction, getUnreconciledContributionsAction } from '@/lib/actions/contributions';
+import { getCircleContributionsAction, getUnreconciledContributionsAction, syncCircleInflowsAction } from '@/lib/actions/contributions';
 import { ReconcileContributionButton } from '@/components/circles/reconcileContributionButton';
 import { SyncInflowsButton } from '@/components/circles/syncInflowsButton';
 import { ContributionSettingsButton } from '@/components/circles/contributionSettingsButton';
@@ -52,17 +52,28 @@ async function ContributionsContent({ searchParams }: PageProps) {
 
   // Fetch real data
   const targetSlug = activeCircle?.slug || '';
-  const reconciledRes = await getCircleContributionsAction(targetSlug);
-  const reconciledList = reconciledRes.success ? reconciledRes.data || [] : [];
-
-  const unreconciledRes = await getUnreconciledContributionsAction(targetSlug);
-  const unreconciledList = unreconciledRes.success ? unreconciledRes.data || [] : [];
 
   const detailsRes = await getCircleDetailsAction(targetSlug);
   const circleDetails = detailsRes.success ? detailsRes.data : null;
   const members = circleDetails ? circleDetails.members : [];
   const userRole = circleDetails ? circleDetails.currentUserRole : null;
   const isManager = userRole === 'owner' || userRole === 'admin' || userRole === 'treasurer';
+
+  // Automatically trigger sync if manager loads the page
+  if (isManager && targetSlug) {
+    try {
+      console.log(`[Contributions Page] Auto-syncing inflows for circle: ${targetSlug}`);
+      await syncCircleInflowsAction(targetSlug);
+    } catch (autoSyncErr) {
+      console.error('[Contributions Page] Auto-sync failed:', autoSyncErr);
+    }
+  }
+
+  const reconciledRes = await getCircleContributionsAction(targetSlug);
+  const reconciledList = reconciledRes.success ? reconciledRes.data || [] : [];
+
+  const unreconciledRes = await getUnreconciledContributionsAction(targetSlug);
+  const unreconciledList = unreconciledRes.success ? unreconciledRes.data || [] : [];
 
   // Stats calculation
   const totalContributed = reconciledList.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
@@ -73,7 +84,7 @@ async function ContributionsContent({ searchParams }: PageProps) {
     : 0;
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 md:p-8">
+    <div className="bg-white min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

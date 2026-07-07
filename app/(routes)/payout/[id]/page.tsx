@@ -75,7 +75,7 @@ export default async function PayoutDetailsPage({ params }: Props) {
     const statusUpper = payoutRecord.status.toUpperCase();
 
     return (
-        <div className="bg-gray-50 min-h-screen p-4 md:p-8 flex items-center justify-center">
+        <div className="bg-white min-h-screen p-4 md:p-8 flex items-center justify-center">
             <div className="w-full max-w-xl bg-white border border-gray-100 rounded-3xl shadow-xl p-6 md:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
                 
                 {/* Header */}
