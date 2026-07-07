@@ -182,18 +182,15 @@ export async function createPayoutAction(input: {
 
             console.log('[Nomba] Payout transfer initiated:', transferResult);
             // Transfer status could be SUCCESS, PROCESSING, PENDING_BILLING, etc.
-            const responseCode = transferResult?.code;
-            if (responseCode === '200' || responseCode === '00' || transferResult?.status === true) {
-                const desc = String(transferResult?.description).toUpperCase();
-                if (desc === 'SUCCESS') {
-                    status = 'success';
-                } else if (desc === 'FAILED') {
-                    status = 'failed';
-                } else {
-                    status = 'pending';
-                }
-            } else {
+            const txStatus = String(transferResult?.status || transferResult?.statusName || '').toUpperCase();
+            const txDesc = String(transferResult?.description || '').toUpperCase();
+
+            if (txStatus === 'SUCCESS' || txDesc === 'SUCCESS') {
+                status = 'success';
+            } else if (txStatus === 'FAILED' || txDesc === 'FAILED') {
                 status = 'failed';
+            } else {
+                status = 'pending';
             }
         } catch (apiError: any) {
             console.error('[Nomba] Failed to execute transfer API:', apiError);
