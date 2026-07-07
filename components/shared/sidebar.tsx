@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Home, Circle, Users, Gift, ArrowUpRight, Wallet, BarChart3, Settings, Menu, X } from 'lucide-react';
+import { Home, Circle, Users, Gift, ArrowUpRight, Wallet, BarChart3, Settings, Menu, X, Sliders } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
@@ -132,14 +132,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         },
         { 
             icon: Settings, 
-            label: 'Settings', 
+            label: 'Circle Settings', 
             href: activeCircleSlug && activeCircleSlug !== 'all' ? `/circles/${activeCircleSlug}?tab=settings` : '/circles' 
         },
+        {
+            icon: Sliders,
+            label: 'App Settings',
+            href: '/settings'
+        }
     ];
 
-    // Filter nav items: members only get to view Dashboard, Payouts, and Transactions
+    // Filter nav items: members only get to view Dashboard, Payouts, Transactions, and App Settings
     const filteredNavItems = selectedCircle?.userRole === 'member'
-        ? navItems.filter((item) => ['Dashboard', 'Payouts', 'Transactions'].includes(item.label))
+        ? navItems.filter((item) => ['Dashboard', 'Payouts', 'Transactions', 'App Settings'].includes(item.label))
         : navItems;
 
     return (
@@ -289,13 +294,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 const isDashboardActive = item.label === 'Dashboard' && pathname === '/dashboard';
                 const isCirclesActive = item.label === 'Circles' && pathname === '/circles';
                 const isMembersActive = item.label === 'Members' && pathname.startsWith('/circles/') && tab === 'members';
-                const isSettingsActive = item.label === 'Settings' && pathname.startsWith('/circles/') && tab === 'settings';
+                const isSettingsActive = item.label === 'Circle Settings' && pathname.startsWith('/circles/') && tab === 'settings';
+                const isAppSettingsActive = item.label === 'App Settings' && pathname === '/settings';
                 const isContributionsActive = item.label === 'Contributions' && pathname === '/contributions';
                 const isTransactionsActive = item.label === 'Transactions' && pathname === '/transactions';
                 const isPayoutsActive = item.label === 'Payouts' && pathname === '/payouts';
                 const isReportsActive = item.label === 'Reports' && pathname === '/reports';
 
-                const isActive = isDashboardActive || isCirclesActive || isMembersActive || isSettingsActive || isContributionsActive || isTransactionsActive || isPayoutsActive || isReportsActive;
+                const isActive = isDashboardActive || isCirclesActive || isMembersActive || isSettingsActive || isAppSettingsActive || isContributionsActive || isTransactionsActive || isPayoutsActive || isReportsActive;
 
                 return (
                     <Link
