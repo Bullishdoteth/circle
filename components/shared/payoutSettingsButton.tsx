@@ -16,6 +16,13 @@ export function PayoutSettingsButton() {
     const [accountNumber, setAccountNumber] = useState('');
     const [accountName, setAccountName] = useState('');
 
+    const [bankSearch, setBankSearch] = useState('');
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+
+    const filteredBanks = banks.filter((b) =>
+        b.name.toLowerCase().includes(bankSearch.toLowerCase())
+    );
+
     useEffect(() => {
         if (!isOpen) return;
 
@@ -45,6 +52,15 @@ export function PayoutSettingsButton() {
         };
         loadData();
     }, [isOpen]);
+
+    useEffect(() => {
+        if (bankCode && banks.length > 0) {
+            const currentBank = banks.find((b) => b.code === bankCode);
+            if (currentBank) {
+                setBankSearch(currentBank.name);
+            }
+        }
+    }, [bankCode, banks]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -113,21 +129,50 @@ export function PayoutSettingsButton() {
                                     Please register the bank account where your circle payouts should be deposited. Ensure details match your official ID.
                                 </p>
 
-                                <div>
+                                <div className="relative">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Destination Bank</label>
-                                    <select
-                                        required
-                                        value={bankCode}
-                                        onChange={(e) => setBankCode(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-200 p-2.5 text-xs text-gray-800 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                                    >
-                                        <option value="">Select Destination Bank...</option>
-                                        {banks.map((b) => (
-                                            <option key={b.code} value={b.code}>
-                                                {b.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Search bank name..."
+                                            value={bankSearch}
+                                            onChange={(e) => {
+                                                setBankSearch(e.target.value);
+                                                setDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setDropdownOpen(true)}
+                                            onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+                                            className="w-full rounded-xl border border-gray-200 p-2.5 text-xs text-gray-800 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                        />
+                                        {bankCode && (
+                                            <span className="absolute right-3 top-2.5 text-[9px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded-md">
+                                                Selected
+                                            </span>
+                                        )}
+                                    </div>
+                                    {dropdownOpen && (
+                                        <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-150 bg-white p-1 shadow-lg max-h-48 overflow-y-auto divide-y divide-gray-50/50">
+                                            {filteredBanks.length === 0 ? (
+                                                <div className="p-2.5 text-center text-xs text-gray-400">No banks found.</div>
+                                            ) : (
+                                                filteredBanks.map((b) => (
+                                                    <button
+                                                        key={b.code}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setBankCode(b.code);
+                                                            setBankSearch(b.name);
+                                                            setDropdownOpen(false);
+                                                        }}
+                                                        className="w-full text-left rounded-lg p-2 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                                                    >
+                                                        {b.name}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>

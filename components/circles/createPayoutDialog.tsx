@@ -35,6 +35,13 @@ export function CreatePayoutDialog({ circleId, members, banks, circleContributio
     const [accountName, setAccountName] = useState('');
     const [round, setRound] = useState('Round 1');
 
+    const [bankSearch, setBankSearch] = useState('');
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+
+    const filteredBanks = banks.filter((b) =>
+        b.name.toLowerCase().includes(bankSearch.toLowerCase())
+    );
+
     const handleRecipientChange = (userId: string) => {
         setSelectedUser(userId);
         if (userId) {
@@ -46,12 +53,19 @@ export function CreatePayoutDialog({ circleId, members, banks, circleContributio
                 
                 // Pre-fill bank details if they exist on user record
                 setSelectedBank(member.payoutBankCode || '');
+                if (member.payoutBankCode) {
+                    const bankObj = banks.find((b) => b.code === member.payoutBankCode);
+                    setBankSearch(bankObj ? bankObj.name : '');
+                } else {
+                    setBankSearch('');
+                }
                 setAccountNumber(member.payoutAccountNumber || '');
                 setAccountName(member.payoutAccountName || '');
             }
         } else {
             setAmount('');
             setSelectedBank('');
+            setBankSearch('');
             setAccountNumber('');
             setAccountName('');
         }
@@ -171,21 +185,50 @@ export function CreatePayoutDialog({ circleId, members, banks, circleContributio
                                 </div>
                             </div>
 
-                            <div>
+                            <div className="relative">
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Destination Bank</label>
-                                <select
-                                    required
-                                    value={selectedBank}
-                                    onChange={(e) => setSelectedBank(e.target.value)}
-                                    className="w-full rounded-xl border border-gray-200 p-2.5 text-xs text-gray-800 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                                >
-                                    <option value="">Select Destination Bank...</option>
-                                    {banks.map((b) => (
-                                        <option key={b.code} value={b.code}>
-                                            {b.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="Search bank name..."
+                                        value={bankSearch}
+                                        onChange={(e) => {
+                                            setBankSearch(e.target.value);
+                                            setDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+                                        className="w-full rounded-xl border border-gray-200 p-2.5 text-xs text-gray-800 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                    />
+                                    {selectedBank && (
+                                        <span className="absolute right-3 top-2.5 text-[9px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded-md">
+                                            Selected
+                                        </span>
+                                    )}
+                                </div>
+                                {dropdownOpen && (
+                                    <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-150 bg-white p-1 shadow-xl max-h-48 overflow-y-auto divide-y divide-gray-50/50">
+                                        {filteredBanks.length === 0 ? (
+                                            <div className="p-2.5 text-center text-xs text-gray-400">No banks found.</div>
+                                        ) : (
+                                            filteredBanks.map((b) => (
+                                                <button
+                                                    key={b.code}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedBank(b.code);
+                                                        setBankSearch(b.name);
+                                                        setDropdownOpen(false);
+                                                    }}
+                                                    className="w-full text-left rounded-lg p-2 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                                                >
+                                                    {b.name}
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
