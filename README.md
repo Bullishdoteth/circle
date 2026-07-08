@@ -60,9 +60,15 @@ Circle bridges this gap by provisioning **dedicated virtual bank accounts** for 
 
 ### Walkthrough & Interaction Flow
 
-```
-[Insert docs/demo.gif Walkthrough Placeholder Here]
-```
+<p align="center">
+  <a href="https://drive.google.com/file/d/1guNk_GOnn_5RL2-adLMeTUdrf6pZ-z1b/view?usp=sharing">
+    <img src="docs/images/landing-page.png" alt="Circle Demo Video">
+  </a>
+</p>
+
+<p align="center">
+  <strong>👆 Click the image above to watch the full demo</strong>
+</p>
 
 ### UI Screenshot Gallery
 
