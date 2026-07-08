@@ -275,9 +275,10 @@ export async function getCircleTransactionsAction(
                 firstName: users.firstName,
                 lastName: users.lastName,
                 email: users.email,
+                destinationAccountName: payouts.destinationAccountName,
             })
             .from(payouts)
-            .innerJoin(users, eq(users.id, payouts.userId))
+            .leftJoin(users, eq(users.id, payouts.userId))
             .where(eq(payouts.circleId, circle.id));
 
         const transactions: TransactionRecord[] = [
@@ -294,7 +295,7 @@ export async function getCircleTransactionsAction(
             ...outs.map((o) => ({
                 id: o.id,
                 reference: o.reference,
-                userName: [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email?.split('@')[0] || 'Unknown',
+                userName: [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email?.split('@')[0] || o.destinationAccountName || 'Manual Recipient',
                 userEmail: o.email || '',
                 type: 'payout' as const,
                 amount: o.amount,
@@ -407,9 +408,10 @@ export async function getRecentActivityAction(
                 userName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
                 userEmail: users.email,
                 circleName: circles.name,
+                destinationAccountName: payouts.destinationAccountName,
             })
             .from(payouts)
-            .innerJoin(users, eq(users.id, payouts.userId))
+            .leftJoin(users, eq(users.id, payouts.userId))
             .innerJoin(circles, eq(circles.id, payouts.circleId))
             .where(
                 and(
@@ -457,7 +459,7 @@ export async function getRecentActivityAction(
                 };
             }),
             ...recentPayouts.map((p) => {
-                const name = p.userName.trim() || p.userEmail.split('@')[0];
+                const name = p.userName?.trim() || p.userEmail?.split('@')[0] || p.destinationAccountName || 'Manual Recipient';
                 return {
                     id: `p_${p.id}`,
                     type: 'payout' as const,

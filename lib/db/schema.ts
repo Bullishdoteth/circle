@@ -295,7 +295,6 @@ export const payouts = pgTable("payouts", {
         .notNull()
         .references(() => circles.id, { onDelete: "cascade" }),
     userId: uuid("user_id")
-        .notNull()
         .references(() => users.id, { onDelete: "cascade" }),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     status: text("status").default("pending").notNull(), // 'pending', 'success', 'failed'

@@ -1,0 +1,1 @@
+ALTER TABLE "payouts" ALTER COLUMN "user_id" DROP NOT NULL;

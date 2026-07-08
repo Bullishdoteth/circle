@@ -4,7 +4,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
 import { and, eq, isNull, sql, or, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/db';
-import { circles, users, circleMembers, invitations, virtualAccounts } from '@/lib/db/schema';
+import { circles, users, circleMembers, invitations, virtualAccounts, contributions, payouts } from '@/lib/db/schema';
 import { sendCircleInviteEmail } from '@/lib/mail';
 import { nombaRequest, getNombaConfig } from '@/lib/nomba';
 import { createNotificationAction } from '@/lib/actions/notifications';
@@ -351,6 +351,7 @@ export interface CircleDetails {
         status: string;
         createdAt: string | Date;
         updatedAt: string | Date;
+        actualBalance?: number;
     } | null;
 }
 
@@ -540,6 +541,36 @@ export async function getCircleDetailsAction(
             .where(eq(virtualAccounts.circleId, circle.id))
             .limit(1);
 
+        let vaWithBalance = null;
+        if (virtualAccount) {
+            const [contribSumRes] = await db
+                .select({ total: sql<number>`sum(amount)::float` })
+                .from(contributions)
+                .where(
+                    and(
+                        eq(contributions.circleId, circle.id),
+                        eq(contributions.status, 'success')
+                    )
+                );
+            const totalContribs = contribSumRes?.total || 0;
+
+            const [payoutSumRes] = await db
+                .select({ total: sql<number>`sum(amount)::float` })
+                .from(payouts)
+                .where(
+                    and(
+                        eq(payouts.circleId, circle.id),
+                        eq(payouts.status, 'success')
+                    )
+                );
+            const totalPayouts = payoutSumRes?.total || 0;
+
+            vaWithBalance = {
+                ...virtualAccount,
+                actualBalance: Math.max(0, totalContribs - totalPayouts),
+            };
+        }
+
         return {
             success: true,
             data: {
@@ -547,7 +578,7 @@ export async function getCircleDetailsAction(
                 members,
                 invitations: invitationsList,
                 currentUserRole,
-                virtualAccount: virtualAccount || null,
+                virtualAccount: vaWithBalance || null,
             },
         };
     } catch (error: any) {
