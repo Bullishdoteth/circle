@@ -50,11 +50,14 @@ export default async function PayoutDetailsPage({ params }: Props) {
         .limit(1);
 
     // Fetch payout recipient user details
-    const [recipientUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, payoutRecord.userId))
-        .limit(1);
+    const recipientUser = payoutRecord.userId
+        ? await db
+            .select()
+            .from(users)
+            .where(eq(users.id, payoutRecord.userId))
+            .limit(1)
+            .then((rows) => rows[0] || null)
+        : null;
 
     const amountFormatted = parseFloat(payoutRecord.amount).toLocaleString('en-US', {
         minimumFractionDigits: 2,
@@ -146,9 +149,11 @@ export default async function PayoutDetailsPage({ params }: Props) {
                         <span className="text-gray-500 font-medium mt-0.5">Recipient Member</span>
                         <div className="text-right">
                             <div className="text-gray-900 font-bold">
-                                {[recipientUser?.firstName, recipientUser?.lastName].filter(Boolean).join(' ') || recipientUser?.username || recipientUser?.email.split('@')[0] || 'Member'}
+                                {recipientUser 
+                                    ? ([recipientUser.firstName, recipientUser.lastName].filter(Boolean).join(' ') || recipientUser.username || recipientUser.email.split('@')[0] || 'Member')
+                                    : (payoutRecord.destinationAccountName || 'Manual Recipient')}
                             </div>
-                            <div className="text-[10px] text-gray-400">{recipientUser?.email || ''}</div>
+                            <div className="text-[10px] text-gray-400">{recipientUser?.email || 'Manual Recipient'}</div>
                         </div>
                     </div>
 

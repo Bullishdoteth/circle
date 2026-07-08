@@ -128,7 +128,7 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                         Send bank transfers directly to this account to contribute to this circle. Reconciliations are processed automatically.
                     </p>
                     
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                             <span className="text-[10px] text-gray-400 font-semibold block uppercase">Bank Name</span>
                             <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount?.bankName || 'Nomba MFB'}</span>
@@ -153,6 +153,12 @@ function OverviewTab({ details }: { details: CircleDetails }) {
                         <div className="bg-white p-3 rounded-xl border border-gray-100">
                             <span className="text-[10px] text-gray-400 font-semibold block uppercase">Account Name</span>
                             <span className="text-xs font-bold text-gray-800 mt-1 block">{details.virtualAccount?.bankAccountName || 'Circle Account'}</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100">
+                            <span className="text-[10px] text-gray-400 font-semibold block uppercase">Actual Balance</span>
+                            <span className="text-xs font-bold text-green-700 mt-1 block">
+                                {circle.currency === 'USD' ? '$' : '₦'}{(details.virtualAccount?.actualBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
                         </div>
                     </div>
                 </div>

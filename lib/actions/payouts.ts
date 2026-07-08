@@ -12,7 +12,7 @@ import { createNotificationAction } from '@/lib/actions/notifications';
 export interface PayoutRecord {
     id: string;
     circleId: string;
-    userId: string;
+    userId: string | null;
     userName?: string | null;
     userEmail?: string | null;
     amount: string;
@@ -55,16 +55,18 @@ export async function getPayoutsAction(
                 email: users.email,
             })
             .from(payouts)
-            .innerJoin(users, eq(users.id, payouts.userId))
+            .leftJoin(users, eq(users.id, payouts.userId))
             .where(eq(payouts.circleId, circle.id))
             .orderBy(sql`${payouts.createdAt} DESC`);
 
         const data: PayoutRecord[] = rows.map((row) => {
-            const userName = [row.firstName, row.lastName].filter(Boolean).join(' ') || row.email.split('@')[0];
+            const userName = row.firstName || row.lastName
+                ? [row.firstName, row.lastName].filter(Boolean).join(' ')
+                : (row.email ? row.email.split('@')[0] : (row.payout.destinationAccountName || 'Manual Recipient'));
             return {
                 ...row.payout,
                 userName,
-                userEmail: row.email,
+                userEmail: row.email || null,
             };
         });
 
@@ -164,7 +166,7 @@ export async function createPayoutAction(input: {
         const merchantTxRef = `payout_${crypto.randomUUID().replace(/-/g, '')}`;
 
         let status = 'pending';
-        let reference = merchantTxRef;
+        const reference = merchantTxRef;
 
         try {
             console.log(`[Nomba] Initiating bank transfer of NGN ${input.amount} to ${input.accountNumber} (${input.bankCode})`);
@@ -203,7 +205,7 @@ export async function createPayoutAction(input: {
             .insert(payouts)
             .values({
                 circleId: input.circleId,
-                userId: input.userId,
+                userId: input.userId === 'manual_recipient' ? null : input.userId,
                 amount: input.amount,
                 status,
                 reference,
@@ -215,38 +217,40 @@ export async function createPayoutAction(input: {
             .returning();
 
         // Send payout email notification
-        try {
-            const [targetUser] = await db
-                .select({ email: users.email })
-                .from(users)
-                .where(eq(users.id, input.userId))
-                .limit(1);
+        if (input.userId && input.userId !== 'manual_recipient') {
+            try {
+                const [targetUser] = await db
+                    .select({ email: users.email })
+                    .from(users)
+                    .where(eq(users.id, input.userId))
+                    .limit(1);
 
-            const [circle] = await db
-                .select({ name: circles.name })
-                .from(circles)
-                .where(eq(circles.id, input.circleId))
-                .limit(1);
+                const [circle] = await db
+                    .select({ name: circles.name })
+                    .from(circles)
+                    .where(eq(circles.id, input.circleId))
+                    .limit(1);
 
-            if (targetUser && circle && status === 'success') {
-                await sendPayoutProcessedEmail({
-                    to: targetUser.email,
-                    amount: input.amount,
-                    circleName: circle.name,
-                    bankName: input.bankName,
-                    accountNumber: input.accountNumber,
-                });
+                if (targetUser && circle && status === 'success') {
+                    await sendPayoutProcessedEmail({
+                        to: targetUser.email,
+                        amount: input.amount,
+                        circleName: circle.name,
+                        bankName: input.bankName,
+                        accountNumber: input.accountNumber,
+                    });
 
-                await createNotificationAction({
-                    userId: input.userId,
-                    circleId: input.circleId,
-                    title: 'Payout Disbursed',
-                    message: `A payout of ₦${parseFloat(input.amount).toLocaleString()} from circle "${circle.name}" has been transferred to your bank account.`,
-                    type: 'success',
-                });
+                    await createNotificationAction({
+                        userId: input.userId,
+                        circleId: input.circleId,
+                        title: 'Payout Disbursed',
+                        message: `A payout of ₦${parseFloat(input.amount).toLocaleString()} from circle "${circle.name}" has been transferred to your bank account.`,
+                        type: 'success',
+                    });
+                }
+            } catch (emailErr) {
+                console.error('Failed to send payout notifications:', emailErr);
             }
-        } catch (emailErr) {
-            console.error('Failed to send payout notifications:', emailErr);
         }
 
         return { success: true, data: insertedPayout as PayoutRecord };
